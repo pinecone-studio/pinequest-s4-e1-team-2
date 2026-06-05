@@ -69,7 +69,8 @@ function getDirectionText(
   const bearing = (Math.atan2(y, x) * 180) / Math.PI;
   const normalizedBearing = (bearing + 360) % 360;
 
-  if (normalizedBearing >= 337.5 || normalizedBearing < 22.5) return "хойд зүгт";
+  if (normalizedBearing >= 337.5 || normalizedBearing < 22.5)
+    return "хойд зүгт";
   if (normalizedBearing < 67.5) return "зүүн хойд зүгт";
   if (normalizedBearing < 112.5) return "зүүн зүгт";
   if (normalizedBearing < 157.5) return "зүүн урд зүгт";
@@ -84,27 +85,31 @@ async function getNearbyPlaceDescription(latitude: number, longitude: number) {
     return "";
   }
 
-  const response = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
-      "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.location",
-    },
-    body: JSON.stringify({
-      maxResultCount: 5,
-      rankPreference: "DISTANCE",
-      locationRestriction: {
-        circle: {
-          center: {
-            latitude,
-            longitude,
-          },
-          radius: 100,
-        },
+  const response = await fetch(
+    "https://places.googleapis.com/v1/places:searchNearby",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
+        "X-Goog-FieldMask":
+          "places.displayName,places.formattedAddress,places.location",
       },
-    }),
-  });
+      body: JSON.stringify({
+        maxResultCount: 5,
+        rankPreference: "DISTANCE",
+        locationRestriction: {
+          circle: {
+            center: {
+              latitude,
+              longitude,
+            },
+            radius: 100,
+          },
+        },
+      }),
+    },
+  );
 
   if (!response.ok) {
     return "";
@@ -229,7 +234,9 @@ export default function SelfLocationTracker({
         </View>
       ) : null}
 
-      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+      {errorMessage ? (
+        <Text style={styles.errorText}>{errorMessage}</Text>
+      ) : null}
     </View>
   );
 }
