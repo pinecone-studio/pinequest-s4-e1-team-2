@@ -22,7 +22,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.smartsight"
     },
     "web": {
       "bundler": "metro",
@@ -32,10 +33,19 @@
     "plugins": [
       "expo-router",
       "react-native-fast-tflite",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SmartSight таны одоогийн байршлыг тогтооход ашиглана."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "assets": [
+      "./assets/models/yolov8n.tflite"
+    ]
   }
 }

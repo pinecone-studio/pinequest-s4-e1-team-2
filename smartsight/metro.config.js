@@ -10,4 +10,6 @@ config.resolver.blockList = Array.isArray(blockList)
   ? [...blockList, new RegExp(`^${serverDir.replace(/\\/g, '\\\\')}.*`)]
   : new RegExp(`^${serverDir.replace(/\\/g, '\\\\')}.*`);
 
+config.resolver.assetExts.push('tflite');
+
 module.exports = config;
