@@ -1,4 +1,5 @@
-import { BigButton, Logo, Screen } from '@/components/ui-generated/_comps'
+import { Button, Logo } from '@/components/ui-generated/_comps'
+import { Screen } from '@/components/Screen'
 import { Text, View } from 'react-native'
 import { router } from 'expo-router'
 
@@ -24,7 +25,7 @@ export default function OnboardingPage() {
         </Text>
       </View>
 
-      <BigButton label="ҮРГЭЛЖЛҮҮЛЭХ" height={130} onPress={() => router.replace('/permission')} />
+      <Button label="ҮРГЭЛЖЛҮҮЛЭХ" height={130} onPress={() => router.replace('/permission')} />
     </Screen>
   )
 }

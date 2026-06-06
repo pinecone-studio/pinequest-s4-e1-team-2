@@ -1,7 +1,7 @@
 // components.tsx — Smart Sight · React Native
 // Drop this into your /components/ folder.
 // Replaces all 5 ui-generated files (frame, component, screens-onboarding, screens-features, app)
-// Usage: import { T, BigButton, HomeScreen, ... } from '@/components/components'
+// Usage: import { T, Button, HomeScreen, ... } from '@/components/components'
 import React, { useRef } from "react";
 import {
   View,
@@ -14,8 +14,35 @@ import {
   Platform,
 } from "react-native";
 import { router } from "expo-router";
-
+import * as Haptics from "expo-haptics";
+import { Audio, type AVPlaybackSource } from "expo-av";
+import { Screen } from "../Screen";
 const { width: SCREEN_W } = Dimensions.get("window");
+
+let activeButtonSound: Audio.Sound | null = null;
+
+async function playButtonSound(source?: AVPlaybackSource) {
+  if (!source) return;
+  try {
+    if (activeButtonSound) {
+      await activeButtonSound.unloadAsync();
+      activeButtonSound = null;
+    }
+    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+    const { sound } = await Audio.Sound.createAsync(source, {
+      shouldPlay: true,
+    });
+    activeButtonSound = sound;
+    sound.setOnPlaybackStatusUpdate((status) => {
+      if (status.isLoaded && status.didJustFinish) {
+        sound.unloadAsync();
+        activeButtonSound = null;
+      }
+    });
+  } catch (err) {
+    console.warn("[A11y] Button audio failed:", err);
+  }
+}
 
 // ─────────────────────────────────────────────
 // DESIGN TOKENS  (was: const T = { ... })
@@ -35,262 +62,41 @@ export const T = {
 };
 
 // ─────────────────────────────────────────────
-// ICONS  (was: <svg> paths → now react-native-svg)
-// Install: npx expo install react-native-svg
-// ─────────────────────────────────────────────
-// If you haven't installed react-native-svg yet, swap every <Icon> with a
-// plain <Text> emoji as a placeholder — the layout won't break.
-import Svg, { Path, Circle, Rect } from "react-native-svg";
-
-type IconName =
-  | "eye"
-  | "eyeOff"
-  | "dots"
-  | "radar"
-  | "book"
-  | "pin"
-  | "camera"
-  | "mic"
-  | "check"
-  | "x"
-  | "back"
-  | "volume"
-  | "refresh"
-  | "alert"
-  | "scan";
-
-interface IconProps {
-  name: IconName;
-  size?: number;
-  color?: string;
-  stroke?: number;
-}
-
-export function Icon({
-  name,
-  size = 24,
-  color = "#0A0A0A",
-  stroke = 2,
-}: IconProps) {
-  const p = {
-    stroke: color,
-    strokeWidth: stroke,
-    fill: "none",
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-  };
-  const shapes: Record<IconName, React.ReactNode> = {
-    eye: (
-      <>
-        <Path
-          {...p}
-          d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"
-        />
-        <Circle {...p} cx="12" cy="12" r="3" />
-      </>
-    ),
-    eyeOff: (
-      <>
-        <Path
-          {...p}
-          d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"
-        />
-        <Circle {...p} cx="12" cy="12" r="3" />
-        <Path {...p} d="M3 3l18 18" />
-      </>
-    ),
-    dots: (
-      <>
-        <Circle fill={color} cx="5" cy="12" r="1.6" />
-        <Circle fill={color} cx="12" cy="12" r="1.6" />
-        <Circle fill={color} cx="19" cy="12" r="1.6" />
-      </>
-    ),
-    radar: (
-      <>
-        <Circle fill={color} cx="12" cy="12" r="1.9" />
-        <Circle {...p} cx="12" cy="12" r="5.5" />
-        <Circle {...p} cx="12" cy="12" r="9.5" />
-      </>
-    ),
-    book: (
-      <>
-        <Path {...p} d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 0-2 2V4Z" />
-        <Path {...p} d="M9 4v16" />
-      </>
-    ),
-    pin: (
-      <>
-        <Path {...p} d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" />
-        <Circle {...p} cx="12" cy="10" r="2.6" />
-      </>
-    ),
-    camera: (
-      <>
-        <Path
-          {...p}
-          d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"
-        />
-        <Circle {...p} cx="12" cy="13" r="3.4" />
-      </>
-    ),
-    mic: (
-      <>
-        <Path {...p} d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" />
-        <Path {...p} d="M6 11a6 6 0 0 0 12 0" />
-        <Path {...p} d="M12 17v4" />
-      </>
-    ),
-    check: <Path {...p} d="M5 12.5l4.2 4.2L19 6.5" />,
-    x: <Path {...p} d="M6 6l12 12M18 6L6 18" />,
-    back: <Path {...p} d="M15 5l-7 7 7 7" />,
-    volume: (
-      <>
-        <Path {...p} d="M4 9v6h4l5 4V5L8 9H4Z" />
-        <Path {...p} d="M16.5 8.5a5 5 0 0 1 0 7" />
-        <Path {...p} d="M19 6a8.5 8.5 0 0 1 0 12" />
-      </>
-    ),
-    refresh: (
-      <>
-        <Path {...p} d="M4 12a8 8 0 0 1 13.7-5.6L21 9" />
-        <Path {...p} d="M21 4v5h-5" />
-        <Path {...p} d="M20 12a8 8 0 0 1-13.7 5.6L3 15" />
-        <Path {...p} d="M3 20v-5h5" />
-      </>
-    ),
-    alert: (
-      <>
-        <Path {...p} d="M12 3.5 21 19H3L12 3.5Z" />
-        <Path {...p} d="M12 10v4" />
-        <Circle fill={color} cx="12" cy="16.6" r="0.4" />
-      </>
-    ),
-    scan: (
-      <>
-        <Path {...p} d="M4 8V5a1 1 0 0 1 1-1h3" />
-        <Path {...p} d="M16 4h3a1 1 0 0 1 1 1v3" />
-        <Path {...p} d="M20 16v3a1 1 0 0 1-1 1h-3" />
-        <Path {...p} d="M8 20H5a1 1 0 0 1-1-1v-3" />
-        <Path {...p} d="M4 12h16" />
-      </>
-    ),
-  };
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      {shapes[name]}
-    </Svg>
-  );
-}
-
-// ─────────────────────────────────────────────
 // SCREEN WRAPPERS  (was: <div style={{flex:1}}>)
-// ─────────────────────────────────────────────
 // Web <div style={{flex:1, padding:20}}> → RN <View style={{flex:1, padding:20}}>
 // Web overflow scroll <div> → RN <ScrollView>
 
-interface ScreenProps {
-  children: React.ReactNode;
-  style?: object;
-}
-
-export function Screen({ children, style }: ScreenProps) {
-  return <View style={[ss.screen, style]}>{children}</View>;
-}
-
-export function ScreenScroll({ children, style }: ScreenProps) {
-  // Web: overflowY: 'auto' div  →  RN: ScrollView with flex:1
-  return (
-    <ScrollView
-      style={[{ flex: 1 }]}
-      contentContainerStyle={[ss.screen, style]}
-      showsVerticalScrollIndicator={false}
-    >
-      {children}
-    </ScrollView>
-  );
-}
-
-// ─────────────────────────────────────────────
-// SHARED BUTTONS
-// ─────────────────────────────────────────────
-// Web: <button onClick={fn}> → RN: <TouchableOpacity onPress={fn}>
-// Web: cursor:'pointer' → delete it (doesn't exist in RN)
-// Web: transform: press ? 'scale(0.975)' → RN: Animated.spring on scale
-
-interface BigButtonProps {
+interface ButtonProps {
   label: string;
   sub?: string;
   onPress?: () => void;
+  onAction?: () => void;
+  audioSource?: AVPlaybackSource;
+  doubleTapDelay?: number;
   danger?: boolean;
   height?: number;
-  flex?: boolean;
+  fontSize?: number;
 }
-export function BigButton({
+
+export function Button({
   label,
   sub,
   onPress,
-  danger,
-  height = 124,
-  flex,
-}: BigButtonProps) {
-  const scale = React.useRef(new Animated.Value(1)).current;
-  // Animated.spring is RN's equivalent of CSS transition: transform
-  const onPressIn = () =>
-    Animated.spring(scale, {
-      toValue: 0.975,
-      useNativeDriver: true,
-      speed: 50,
-    }).start();
-  const onPressOut = () =>
-    Animated.spring(scale, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 50,
-    }).start();
-  return (
-    <Animated.View
-      style={{
-        transform: [{ scale }],
-        width: "100%",
-        ...(flex ? { flex: 1 } : { height }),
-      }}
-    >
-      <TouchableOpacity
-        onPress={onPress}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-        activeOpacity={1}
-        style={[
-          ss.bigBtn,
-          danger && { backgroundColor: T.danger },
-          { height: flex ? "100%" : height },
-        ]}
-      >
-        <Text style={ss.bigBtnLabel}>{label}</Text>
-        {sub && <Text style={ss.bigBtnSub}>{sub}</Text>}
-      </TouchableOpacity>
-    </Animated.View>
-  );
-}
-
-interface FeatureBtnProps {
-  icon?: IconName;
-  label: string;
-  onPress?: () => void;
-  danger?: boolean;
-  height?: number;
-  row?: boolean;
-}
-export function FeatureBtn({
-  icon,
-  label,
-  onPress,
+  onAction,
+  audioSource,
+  doubleTapDelay = 300,
   danger,
   height = 122,
-  row,
-}: FeatureBtnProps) {
+  fontSize = 24,
+}: ButtonProps) {
   const scale = React.useRef(new Animated.Value(1)).current;
+  const lastTapTime = React.useRef<number | null>(null);
+  const singleTapTimer = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const action = onAction ?? onPress;
+  const useDoubleTap = Boolean(audioSource || onAction);
+
   const onPressIn = () =>
     Animated.spring(scale, {
       toValue: 0.975,
@@ -303,56 +109,66 @@ export function FeatureBtn({
       useNativeDriver: true,
       speed: 50,
     }).start();
+
+  React.useEffect(() => {
+    return () => {
+      if (singleTapTimer.current) {
+        clearTimeout(singleTapTimer.current);
+      }
+    };
+  }, []);
+
+  const handlePress = () => {
+    if (!action) return;
+    const now = Date.now();
+    const elapsed = lastTapTime.current ? now - lastTapTime.current : Infinity;
+
+    if (!useDoubleTap) {
+      action();
+      return;
+    }
+
+    if (elapsed < doubleTapDelay) {
+      if (singleTapTimer.current) {
+        clearTimeout(singleTapTimer.current);
+        singleTapTimer.current = null;
+      }
+      lastTapTime.current = null;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      action();
+      return;
+    }
+
+    lastTapTime.current = now;
+    singleTapTimer.current = setTimeout(() => {
+      lastTapTime.current = null;
+      singleTapTimer.current = null;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      void playButtonSound(audioSource);
+    }, doubleTapDelay);
+  };
+
   return (
     <Animated.View style={{ transform: [{ scale }], width: "100%", height }}>
       <TouchableOpacity
-        onPress={onPress}
+        onPress={handlePress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
         activeOpacity={1}
-        style={[
-          ss.featureBtn,
-          danger && { backgroundColor: T.danger },
-          { height },
-          row && { flexDirection: "row", gap: 14 },
-        ]}
+        accessible={true}
+        accessibilityRole="button"
+        style={[ss.button, danger && { backgroundColor: T.danger }, { height }]}
       >
-        {icon && <Icon name={icon} size={44} color="#fff" stroke={2} />}
-        <Text style={ss.featureBtnLabel}>{label}</Text>
+        <Text style={[ss.buttonLabel, { fontSize }]}>{label}</Text>
+        {sub && (
+          <Text
+            style={[ss.buttonSub, { fontSize: Math.max(14, fontSize - 8) }]}
+          >
+            {sub}
+          </Text>
+        )}
       </TouchableOpacity>
     </Animated.View>
-  );
-}
-
-// Secondary (grey) buttons
-export function SecondaryBig({
-  label,
-  onPress,
-  height = 84,
-}: {
-  label: string;
-  onPress?: () => void;
-  height?: number;
-}) {
-  return (
-    <TouchableOpacity onPress={onPress} style={[ss.secondaryBig, { height }]}>
-      <Text style={ss.secondaryBigLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-export function SecondaryB({
-  label,
-  onPress,
-  height = 76,
-}: {
-  label: string;
-  onPress?: () => void;
-  height?: number;
-}) {
-  return (
-    <TouchableOpacity onPress={onPress} style={[ss.secondaryB, { height }]}>
-      <Text style={ss.secondaryBLabel}>{label}</Text>
-    </TouchableOpacity>
   );
 }
 
@@ -394,7 +210,6 @@ export function AlertBar({
   }, [blink]);
   return (
     <Animated.View style={[ss.alertBar, { opacity }]}>
-      <Icon name="alert" size={30} color="#fff" stroke={2.2} />
       <Text style={ss.alertText}>
         {dir} · {dist}м
       </Text>
@@ -459,10 +274,10 @@ export function CameraView({
 // This component is a UI-only replica for screens that embed it manually.
 // ─────────────────────────────────────────────
 const TABS = [
-  { id: "obstacle", icon: "radar" as IconName, label: "Саад" },
-  { id: "recognize", icon: "eye" as IconName, label: "Таних" },
-  { id: "ocr", icon: "book" as IconName, label: "Текст" },
-  { id: "location", icon: "pin" as IconName, label: "Байршил" },
+  { id: "obstacle", label: "Саад" },
+  { id: "recognize", label: "Таних" },
+  { id: "ocr", label: "Текст" },
+  { id: "location", label: "Байршил" },
 ];
 export function TabBar({
   active,
@@ -481,14 +296,9 @@ export function TabBar({
             onPress={() => onNav(t.id)}
             style={ss.tabItem}
           >
-            <View style={[ss.tabPill, on && { backgroundColor: T.text }]}>
-              <Icon
-                name={t.icon}
-                size={24}
-                color={on ? "#fff" : T.muted}
-                stroke={2.1}
-              />
-            </View>
+            <View
+              style={[ss.tabPill, on && { backgroundColor: T.text }]}
+            ></View>
             <Text
               style={[ss.tabLabel, on && { fontWeight: "700", color: T.text }]}
             >
@@ -507,7 +317,6 @@ export function TabBar({
 export function Logo({ size = 28 }: { size?: number }) {
   return (
     <View style={ss.logoRow}>
-      <Icon name="eye" size={36} color={T.text} stroke={2.1} />
       <Text style={[ss.logoText, { fontSize: size }]}>Smart Sight</Text>
     </View>
   );
@@ -516,7 +325,6 @@ export function Logo({ size = 28 }: { size?: number }) {
 export function BackRow({ onBack }: { onBack: () => void }) {
   return (
     <TouchableOpacity onPress={onBack} style={ss.backRow}>
-      <Icon name="back" size={22} color={T.muted} />
       <Text style={ss.backLabel}>Буцах</Text>
     </TouchableOpacity>
   );
@@ -533,9 +341,10 @@ export function TopBar({
 }) {
   return (
     <View style={ss.topBar}>
-      <TouchableOpacity onPress={onBack} style={ss.topBarBack}>
-        <Icon name="back" size={26} color={T.text} stroke={2.2} />
-      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={onBack}
+        style={ss.topBarBack}
+      ></TouchableOpacity>
       <Text style={[ss.topBarTitle, big && { fontSize: 28 }]}>{title}</Text>
     </View>
   );
@@ -558,19 +367,19 @@ export function VisionScreen({
         <Text style={ss.visionHeading}>Харааны чадвараа{"\n"}сонгоно уу</Text>
       </View>
       <View style={{ gap: 16 }}>
-        <BigButton
+        <Button
           label="БҮРЭН ХАРААНЫ"
           sub="Огт харагддаггүй бол"
           height={132}
           onPress={() => onPick("A")}
         />
-        <BigButton
+        <Button
           label="ХАГАС ХАРААНЫ"
           sub="Бага зэрэг харагддаг бол"
           height={132}
           onPress={() => onPick("B")}
         />
-        <BigButton label="БУСАД" height={132} onPress={() => onPick("B")} />
+        <Button label="БУСАД" height={132} onPress={() => onPick("B")} />
       </View>
     </Screen>
   );
@@ -592,19 +401,19 @@ export function LoginScreen({
         <Text style={ss.loginSub}>Нэвтэрч орно уу</Text>
       </View>
       <View style={{ gap: 16 }}>
-        <BigButton
+        <Button
           label="GOOGLE"
           sub="-ООР НЭВТРЭХ"
           height={128}
           onPress={onLogin}
         />
-        <BigButton
+        <Button
           label="APPLE"
           sub="-ААР НЭВТРЭХ"
           height={128}
           onPress={onLogin}
         />
-        <BigButton
+        <Button
           label="FACEBOOK"
           sub="-ООР НЭВТРЭХ"
           height={128}
@@ -619,19 +428,16 @@ export function LoginScreen({
 const PERMS = [
   {
     id: "camera",
-    icon: "camera" as IconName,
     title: "Камерын зөвшөөрөл",
     desc: "Объект таних, текст унших, орчноо мэдэхэд хэрэглэнэ.",
   },
   {
     id: "mic",
-    icon: "mic" as IconName,
     title: "Микрофоны зөвшөөрөл",
     desc: "Дуун заавар өгөх, тушаал сонсоход хэрэглэнэ.",
   },
   {
     id: "loc",
-    icon: "pin" as IconName,
     title: "Байршлын зөвшөөрөл",
     desc: "Одоо хаана байгааг тань тогтооход хэрэглэнэ.",
   },
@@ -658,21 +464,12 @@ export function PermissionsScreen({ onDone }: { onDone: () => void }) {
         ))}
       </View>
       <View style={ss.permCenter}>
-        <View style={ss.permIcon}>
-          <Icon name={p.icon} size={64} color={T.text} stroke={1.8} />
-        </View>
         <Text style={ss.permTitle}>{p.title}</Text>
         <Text style={ss.permDesc}>{p.desc}</Text>
       </View>
       <View style={{ gap: 12 }}>
-        <FeatureBtn
-          row
-          icon="check"
-          label="Зөвшөөрөх"
-          height={88}
-          onPress={next}
-        />
-        <SecondaryB label="Үгүй" onPress={next} />
+        <Button label="Зөвшөөрөх" height={88} onPress={next} />
+        <Button label="Үгүй" onPress={next} />
       </View>
     </Screen>
   );
@@ -680,10 +477,26 @@ export function PermissionsScreen({ onDone }: { onDone: () => void }) {
 
 // 4 · HOME
 const FEATURES = [
-  { id: "obstacle", icon: "radar" as IconName, label: "Саад мэдрэгч" },
-  { id: "recognize", icon: "eye" as IconName, label: "Таних систем" },
-  { id: "ocr", icon: "book" as IconName, label: "Текст унших" },
-  { id: "location", icon: "pin" as IconName, label: "Байршил" },
+  {
+    id: "obstacle",
+    label: "Саад мэдрэгч",
+    audio: require("@/assets/haptics/obidentifybtn.mp3"),
+  },
+  {
+    id: "recognize",
+    label: "Таних систем",
+    audio: require("@/assets/haptics/grlidentifybtn.mp3"),
+  },
+  {
+    id: "ocr",
+    label: "Текст унших",
+    audio: require("@/assets/haptics/textreaderbtn.mp3"),
+  },
+  {
+    id: "location",
+    label: "Байршил",
+    audio: require("@/assets/haptics/locationdefinebtn.mp3"),
+  },
 ];
 export function HomeScreen({ onNav }: { onNav: (id: string) => void }) {
   return (
@@ -695,37 +508,37 @@ export function HomeScreen({ onNav }: { onNav: (id: string) => void }) {
       <View style={{ flex: 1, gap: 14 }}>
         <View style={ss.featureRow}>
           <View style={{ flex: 1 }}>
-            <FeatureBtn
-              icon={FEATURES[0].icon}
+            <Button
               label={FEATURES[0].label}
               height={150}
               onPress={() => onNav(FEATURES[0].id)}
+              audioSource={FEATURES[0].audio}
             />
           </View>
           <View style={{ flex: 1 }}>
-            <FeatureBtn
-              icon={FEATURES[1].icon}
+            <Button
               label={FEATURES[1].label}
               height={150}
               onPress={() => onNav(FEATURES[1].id)}
+              audioSource={FEATURES[1].audio}
             />
           </View>
         </View>
         <View style={ss.featureRow}>
           <View style={{ flex: 1 }}>
-            <FeatureBtn
-              icon={FEATURES[2].icon}
+            <Button
               label={FEATURES[2].label}
               height={150}
               onPress={() => onNav(FEATURES[2].id)}
+              audioSource={FEATURES[2].audio}
             />
           </View>
           <View style={{ flex: 1 }}>
-            <FeatureBtn
-              icon={FEATURES[3].icon}
+            <Button
               label={FEATURES[3].label}
               height={150}
               onPress={() => onNav(FEATURES[3].id)}
+              audioSource={FEATURES[3].audio}
             />
           </View>
         </View>
@@ -770,9 +583,7 @@ export function ObstacleScreen({ onBack }: { onBack: () => void }) {
       {run && <AlertBar dir={cur.dir} dist={`${cur.dist}`} blink={near} />}
       <View style={{ flex: 1 }} />
       {!run ? (
-        <FeatureBtn
-          row
-          icon="radar"
+        <Button
           label="Эхлүүлэх"
           height={92}
           onPress={() => {
@@ -781,9 +592,7 @@ export function ObstacleScreen({ onBack }: { onBack: () => void }) {
           }}
         />
       ) : (
-        <FeatureBtn
-          row
-          icon="x"
+        <Button
           label="Зогсоох"
           height={92}
           danger
@@ -851,9 +660,7 @@ export function RecognizeScreen({ onBack }: { onBack: () => void }) {
       )}
       <View style={{ flex: 1 }} />
       {!run ? (
-        <FeatureBtn
-          row
-          icon="eye"
+        <Button
           label="Камер эхлүүлэх"
           height={92}
           onPress={() => {
@@ -862,9 +669,7 @@ export function RecognizeScreen({ onBack }: { onBack: () => void }) {
           }}
         />
       ) : (
-        <FeatureBtn
-          row
-          icon="x"
+        <Button
           label="Зогсоох"
           height={92}
           danger
@@ -880,7 +685,9 @@ const OCR_RESULT =
   "ЦАЙНЫ ГАЗАР «ОРХОН»\nНээлттэй: 09:00 – 22:00\nАмерикано — 5500₮\nКапучино — 6500₮\nСүүтэй цай — 3500₮";
 export function OcrScreen({ onBack }: { onBack: () => void }) {
   const [st, setSt] = React.useState<"idle" | "reading" | "done">("idle");
-  const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   const capture = () => {
     setSt("reading");
     if (timer.current) {
@@ -917,21 +724,9 @@ export function OcrScreen({ onBack }: { onBack: () => void }) {
       )}
       {st !== "done" && <View style={{ flex: 1 }} />}
       {st === "done" ? (
-        <FeatureBtn
-          row
-          icon="refresh"
-          label="Дахин авах"
-          height={92}
-          onPress={() => setSt("idle")}
-        />
+        <Button label="Дахин авах" height={92} onPress={() => setSt("idle")} />
       ) : (
-        <FeatureBtn
-          row
-          icon="camera"
-          label="Зураг авах"
-          height={92}
-          onPress={capture}
-        />
+        <Button label="Зураг авах" height={92} onPress={capture} />
       )}
     </Screen>
   );
@@ -966,9 +761,6 @@ export function LocationScreen({ onBack }: { onBack: () => void }) {
       {/* Map placeholder — swap with react-native-maps MapView in real app */}
       <View style={ss.mapThumb}>
         <Text style={ss.mapLabel}>ГАЗРЫН ЗУРАГ</Text>
-        <View style={ss.mapPin}>
-          <Icon name="pin" size={48} color={T.danger} stroke={2.4} />
-        </View>
       </View>
       <View style={{ minHeight: 70 }}>
         {st === "done" ? (
@@ -985,9 +777,7 @@ export function LocationScreen({ onBack }: { onBack: () => void }) {
         )}
       </View>
       <View style={{ flex: 1 }} />
-      <FeatureBtn
-        row
-        icon={st === "done" ? "volume" : "pin"}
+      <Button
         label={st === "done" ? "Давтах" : "Байршлаа мэдэх"}
         height={92}
         onPress={locate}
@@ -1002,64 +792,29 @@ export function LocationScreen({ onBack }: { onBack: () => void }) {
 // StyleSheet.create() is the same as a CSS-in-JS object but RN validates
 // it at startup and flattens it for performance.
 // ─────────────────────────────────────────────
-const ss = StyleSheet.create({
+export const ss = StyleSheet.create({
   // wrappers
   screen: { flex: 1, padding: T.pad, backgroundColor: T.bg },
   // big button
-  bigBtn: {
+  button: {
     width: "100%",
     backgroundColor: T.btnBg,
-    borderRadius: T.rBtn,
+    borderRadius: T.rCard,
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    padding: 12,
-  },
-  bigBtnLabel: {
-    fontSize: 40,
-    fontWeight: "700",
-    color: "#fff",
-    letterSpacing: -0.5,
-    textAlign: "center",
-  },
-  bigBtnSub: {
-    fontSize: 18,
-    color: "rgba(255,255,255,0.62)",
-    textAlign: "center",
-  },
-  // feature button
-  featureBtn: {
-    width: "100%",
-    backgroundColor: T.btnBg,
-    borderRadius: T.rCard,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
     padding: 14,
   },
-  featureBtnLabel: {
-    fontSize: 24,
+  buttonLabel: {
     fontWeight: "700",
     color: "#fff",
     letterSpacing: -0.2,
+    textAlign: "center",
   },
-  // secondary
-  secondaryBig: {
-    width: "100%",
-    backgroundColor: T.surface,
-    borderRadius: T.rBtn,
-    alignItems: "center",
-    justifyContent: "center",
+  buttonSub: {
+    color: "rgba(255,255,255,0.72)",
+    textAlign: "center",
   },
-  secondaryBigLabel: { fontSize: 34, fontWeight: "700", color: T.text },
-  secondaryB: {
-    width: "100%",
-    backgroundColor: T.surface,
-    borderRadius: T.rCard,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  secondaryBLabel: { fontSize: 22, fontWeight: "700", color: T.text },
   // alert bar
   alertBar: {
     backgroundColor: T.danger,
@@ -1171,14 +926,6 @@ const ss = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 22,
-  },
-  permIcon: {
-    width: 132,
-    height: 132,
-    borderRadius: 40,
-    backgroundColor: T.surface,
-    alignItems: "center",
-    justifyContent: "center",
   },
   permTitle: {
     fontSize: 26,
