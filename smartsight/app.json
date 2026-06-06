@@ -49,6 +49,9 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "assets": [
+      "./assets/models/yolov8n.tflite"
+    ]
   }
 }
