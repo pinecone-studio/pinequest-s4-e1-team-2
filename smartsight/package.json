@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@react-native-ml-kit/image-labeling": "^2.0.0",
     "@react-native-ml-kit/text-recognition": "^2.0.0",
     "@react-navigation/native": "^7.1.8",
     "@types/jpeg-js": "^0.3.0",
@@ -18,6 +19,7 @@
     "expo-av": "~16.0.8",
     "expo-camera": "~17.0.10",
     "expo-constants": "~18.0.13",
+    "expo-dev-client": "~6.0.21",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",
     "expo-image-manipulator": "~14.0.8",
