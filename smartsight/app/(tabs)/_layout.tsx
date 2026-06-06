@@ -54,6 +54,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Тохиргоо',
+          tabBarIcon: ({ color }) => <TabBarIcon name="sliders" color={color} />,
+        }}
+      />
     </Tabs>
   );
 }

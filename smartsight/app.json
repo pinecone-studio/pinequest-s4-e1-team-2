@@ -31,7 +31,8 @@
     },
     "plugins": [
       "expo-router",
-      "react-native-fast-tflite"
+      "react-native-fast-tflite",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true
