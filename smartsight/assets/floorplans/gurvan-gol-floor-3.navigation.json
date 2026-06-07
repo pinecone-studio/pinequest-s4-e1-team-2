@@ -1,6 +1,6 @@
 {
   "buildingId": "gurvan-gol",
-  "buildingName": "Gurvan Gol",
+  "buildingName": "Гурван Гол",
   "floor": 3,
   "floorPlan": {
     "dxf": "../gurvan-gol-floor-3.dxf",
@@ -8,11 +8,336 @@
     "geometry": "./gurvan-gol-floor-3.json",
     "metadata": "./gurvan-gol-floor-3.metadata.json"
   },
-  "qrAnchors": [],
-  "rooms": [],
+  "qrAnchors": [
+    {
+      "id": "qr_1",
+      "label": "QR-1",
+      "nodeId": "qr_1_node",
+      "buildingId": "gurvan-gol",
+      "floor": 3
+    },
+    {
+      "id": "qr_2",
+      "label": "Гарц",
+      "nodeId": "qr_2_node",
+      "buildingId": "gurvan-gol",
+      "floor": 3,
+      "type": "floor_exit"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "room_301",
+      "name": "301",
+      "doorNodeId": "room_301_door",
+      "x": 2269826.010108378,
+      "y": 1029820.027876234
+    },
+    {
+      "id": "room_302",
+      "name": "302",
+      "doorNodeId": "room_302_door",
+      "x": 2269826.010108378,
+      "y": 1026880.030700396
+    },
+    {
+      "id": "room_303",
+      "name": "303",
+      "doorNodeId": "room_303_door",
+      "x": 2269826.010108378,
+      "y": 1020220.03346283
+    },
+    {
+      "id": "room_304",
+      "name": "304",
+      "doorNodeId": "room_304_door",
+      "x": 2276318.265624527,
+      "y": 1020090.690811292
+    },
+    {
+      "id": "room_305",
+      "name": "305",
+      "doorNodeId": "room_305_door",
+      "x": 2276390.680578338,
+      "y": 1022595.593183976
+    },
+    {
+      "id": "exit_floor_3",
+      "name": "Гарц",
+      "doorNodeId": "qr_2_node",
+      "x": 2279810.375574271,
+      "y": 1028525.91079329
+    },
+    {
+      "id": "room_00",
+      "name": "00",
+      "doorNodeId": "room_00_door",
+      "x": 2277911.621488972,
+      "y": 1030979.644531526
+    }
+  ],
   "graph": {
-    "nodes": [],
-    "edges": []
+    "nodes": [
+      {
+        "id": "qr_1_node",
+        "x": 2270310.375574271,
+        "y": 1021111.738481949,
+        "label": "QR-1"
+      },
+      {
+        "id": "qr_2_node",
+        "x": 2279810.375574271,
+        "y": 1028525.91079329,
+        "label": "Гарц"
+      },
+      {
+        "id": "left_corridor_lower",
+        "x": 2271110.72462615,
+        "y": 1021111.738481949,
+        "label": "Зүүн коридор - QR-1 орчим"
+      },
+      {
+        "id": "left_corridor_mid",
+        "x": 2271110.72462615,
+        "y": 1024516.738481949,
+        "label": "Зүүн коридор - дунд хэсэг"
+      },
+      {
+        "id": "left_corridor_upper",
+        "x": 2271110.72462615,
+        "y": 1028176.738481948,
+        "label": "Зүүн коридор - дээд хэсэг"
+      },
+      {
+        "id": "left_corridor_top",
+        "x": 2271110.72462615,
+        "y": 1029941.738481949,
+        "label": "Зүүн коридор - дээд хэсэг"
+      },
+      {
+        "id": "top_corridor_301",
+        "x": 2279210.72462615,
+        "y": 1029941.738481949,
+        "label": "Дээд коридор - 301 орчим"
+      },
+      {
+        "id": "top_corridor_00",
+        "x": 2277911.621488972,
+        "y": 1030976.738481949,
+        "label": "Дээд коридор - 00 орчим"
+      },
+      {
+        "id": "main_corridor_left",
+        "x": 2273357.72462615,
+        "y": 1024516.738481949,
+        "label": "Гол коридор - зүүн уулзвар"
+      },
+      {
+        "id": "main_corridor_upper",
+        "x": 2273357.72462615,
+        "y": 1028176.738481948,
+        "label": "Гол коридор - дээд уулзвар"
+      },
+      {
+        "id": "main_corridor_right",
+        "x": 2276510.72462615,
+        "y": 1024516.738481949,
+        "label": "Гол коридор - баруун уулзвар"
+      },
+      {
+        "id": "right_corridor_upper",
+        "x": 2279210.72462615,
+        "y": 1028176.738481948,
+        "label": "Баруун коридор - QR-2 уулзвар"
+      },
+      {
+        "id": "right_corridor_qr2",
+        "x": 2279210.72462615,
+        "y": 1028525.91079329,
+        "label": "Баруун коридор - QR-2 орчим"
+      },
+      {
+        "id": "right_rooms_corridor_lower",
+        "x": 2275610.72462615,
+        "y": 1020266.738481949,
+        "label": "Баруун өрөөнүүдийн коридор - 304 орчим"
+      },
+      {
+        "id": "right_rooms_corridor_mid",
+        "x": 2275610.72462615,
+        "y": 1022726.738481949,
+        "label": "Баруун өрөөнүүдийн коридор - 305 орчим"
+      },
+      {
+        "id": "right_rooms_corridor_top",
+        "x": 2275610.72462615,
+        "y": 1024516.738481949,
+        "label": "Баруун өрөөнүүдийн коридор - гол коридор"
+      },
+      {
+        "id": "room_301_door",
+        "x": 2279210.72462615,
+        "y": 1029941.738481949,
+        "label": "301 хаалга"
+      },
+      {
+        "id": "room_302_door",
+        "x": 2271110.72462615,
+        "y": 1027011.738481949,
+        "label": "302 хаалга"
+      },
+      {
+        "id": "room_303_door",
+        "x": 2271110.72462615,
+        "y": 1020361.738481949,
+        "label": "303 хаалга"
+      },
+      {
+        "id": "room_304_door",
+        "x": 2275610.72462615,
+        "y": 1020266.738481949,
+        "label": "304 хаалга"
+      },
+      {
+        "id": "room_305_door",
+        "x": 2275610.72462615,
+        "y": 1022726.738481949,
+        "label": "305 хаалга"
+      },
+      {
+        "id": "room_00_door",
+        "x": 2277911.621488972,
+        "y": 1030976.738481949,
+        "label": "00 хаалга"
+      }
+    ],
+    "edges": [
+      {
+        "from": "qr_1_node",
+        "to": "left_corridor_lower"
+      },
+      {
+        "from": "qr_1_node",
+        "to": "room_301_door",
+        "distanceMm": 9900
+      },
+      {
+        "from": "qr_1_node",
+        "to": "room_302_door",
+        "distanceMm": 6600
+      },
+      {
+        "from": "qr_1_node",
+        "to": "room_303_door",
+        "distanceMm": 500
+      },
+      {
+        "from": "qr_1_node",
+        "to": "room_304_door",
+        "distanceMm": 6200
+      },
+      {
+        "from": "qr_1_node",
+        "to": "room_305_door",
+        "distanceMm": 8700
+      },
+      {
+        "from": "qr_1_node",
+        "to": "room_00_door",
+        "distanceMm": 17400
+      },
+      {
+        "from": "qr_1_node",
+        "to": "qr_2_node",
+        "distanceMm": 18700
+      },
+      {
+        "from": "left_corridor_lower",
+        "to": "room_303_door"
+      },
+      {
+        "from": "left_corridor_lower",
+        "to": "left_corridor_mid"
+      },
+      {
+        "from": "left_corridor_mid",
+        "to": "room_302_door"
+      },
+      {
+        "from": "left_corridor_mid",
+        "to": "left_corridor_upper"
+      },
+      {
+        "from": "left_corridor_upper",
+        "to": "left_corridor_top"
+      },
+      {
+        "from": "left_corridor_mid",
+        "to": "main_corridor_left"
+      },
+      {
+        "from": "main_corridor_left",
+        "to": "main_corridor_upper"
+      },
+      {
+        "from": "main_corridor_upper",
+        "to": "right_corridor_upper"
+      },
+      {
+        "from": "right_corridor_upper",
+        "to": "right_corridor_qr2"
+      },
+      {
+        "from": "right_corridor_qr2",
+        "to": "qr_2_node"
+      },
+      {
+        "from": "qr_2_node",
+        "to": "room_301_door",
+        "bidirectional": false
+      },
+      {
+        "from": "right_corridor_qr2",
+        "to": "top_corridor_301"
+      },
+      {
+        "from": "top_corridor_301",
+        "to": "room_301_door",
+        "bidirectional": false
+      },
+      {
+        "from": "top_corridor_301",
+        "to": "top_corridor_00"
+      },
+      {
+        "from": "top_corridor_00",
+        "to": "room_00_door"
+      },
+      {
+        "from": "main_corridor_left",
+        "to": "main_corridor_right"
+      },
+      {
+        "from": "main_corridor_right",
+        "to": "right_rooms_corridor_top"
+      },
+      {
+        "from": "right_rooms_corridor_top",
+        "to": "right_rooms_corridor_mid"
+      },
+      {
+        "from": "right_rooms_corridor_mid",
+        "to": "room_305_door"
+      },
+      {
+        "from": "right_rooms_corridor_mid",
+        "to": "right_rooms_corridor_lower"
+      },
+      {
+        "from": "right_rooms_corridor_lower",
+        "to": "room_304_door"
+      }
+    ]
   },
   "notes": [
     "Use qrAnchors for physical QR code locations. Each QR should include buildingId, floor, and anchorId.",
