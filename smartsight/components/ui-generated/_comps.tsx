@@ -17,6 +17,9 @@ import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Audio, type AVPlaybackSource } from "expo-av";
 import { Screen } from "../Screen";
+import SelfLocationTracker, {
+  useSelfLocationTracker,
+} from "../SelfLocationTracker";
 const { width: SCREEN_W } = Dimensions.get("window");
 
 let activeButtonSound: Audio.Sound | null = null;
@@ -738,49 +741,31 @@ const LOC = {
   sub: "Сүхбаатарын талбайгаас 200 метрт",
 };
 export function LocationScreen({ onBack }: { onBack: () => void }) {
-  const [st, setSt] = React.useState<"idle" | "locating" | "done">("idle");
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const locate = () => {
-    setSt("locating");
-    if (timer.current) {
-      clearTimeout(timer.current);
-    }
-    timer.current = setTimeout(() => setSt("done"), 1300);
-  };
-  React.useEffect(
-    () => () => {
-      if (timer.current) {
-        clearTimeout(timer.current);
-      }
-    },
-    [],
-  );
+  const { addressText, errorMessage, handleGetLocation, loading } =
+    useSelfLocationTracker();
   return (
     <Screen style={{ gap: 16 }}>
       <TopBar title="Байршил" onBack={onBack} />
       {/* Map placeholder — swap with react-native-maps MapView in real app */}
-      <View style={ss.mapThumb}>
+      {/* <View style={ss.mapThumb}>
         <Text style={ss.mapLabel}>ГАЗРЫН ЗУРАГ</Text>
-      </View>
-      <View style={{ minHeight: 70 }}>
-        {st === "done" ? (
-          <>
-            <Text style={ss.locName}>{LOC.name}</Text>
-            <Text style={ss.locSub}>{LOC.sub}</Text>
-          </>
-        ) : (
+      </View> */}
+      <View style={{ minHeight: 140 }}>
+        {loading || (!addressText && !errorMessage) ? (
           <Text style={ss.locHint}>
-            {st === "locating"
-              ? "Байршил хайж байна…"
-              : "Доорх товчийг дарна уу"}
+            {loading ? "Байршил хайж байна…" : "Доорх товчийг дарна уу"}
           </Text>
-        )}
+        ) : null}
+        <SelfLocationTracker
+          addressText={addressText}
+          errorMessage={errorMessage}
+        />
       </View>
       <View style={{ flex: 1 }} />
       <Button
-        label={st === "done" ? "Давтах" : "Байршлаа мэдэх"}
+        label={addressText ? "Давтах" : "Байршлаа мэдэх"}
         height={92}
-        onPress={locate}
+        onPress={handleGetLocation}
       />
     </Screen>
   );

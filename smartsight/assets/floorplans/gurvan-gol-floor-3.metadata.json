@@ -1,0 +1,41 @@
+{
+  "source": "gurvan-gol-floor-3.dxf",
+  "generatedAt": "2026-06-06T13:40:22.705Z",
+  "bounds": {
+    "minX": 2263310.72462615,
+    "minY": 1015716.738481949,
+    "maxX": 2282510.72462615,
+    "maxY": 1034816.738481949
+  },
+  "size": {
+    "width": 19200,
+    "height": 19100
+  },
+  "entityCount": 97,
+  "blockCount": 894,
+  "layers": {
+    "0": {
+      "count": 88,
+      "types": {
+        "polyline": 77,
+        "arc": 1,
+        "circle": 10
+      }
+    },
+    "Line 0.18": {
+      "count": 9,
+      "types": {
+        "text": 9
+      }
+    }
+  },
+  "unsupported": {
+    "VIEWPORT": 4,
+    "SOLID": 90,
+    "ELLIPSE": 2,
+    "SPLINE": 12,
+    "POINT": 2376,
+    "DIMENSION": 189,
+    "HATCH": 157
+  }
+}

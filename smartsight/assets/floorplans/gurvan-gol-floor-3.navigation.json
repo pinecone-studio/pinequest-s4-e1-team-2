@@ -1,0 +1,22 @@
+{
+  "buildingId": "gurvan-gol",
+  "buildingName": "Gurvan Gol",
+  "floor": 3,
+  "floorPlan": {
+    "dxf": "../gurvan-gol-floor-3.dxf",
+    "svg": "./gurvan-gol-floor-3.svg",
+    "geometry": "./gurvan-gol-floor-3.json",
+    "metadata": "./gurvan-gol-floor-3.metadata.json"
+  },
+  "qrAnchors": [],
+  "rooms": [],
+  "graph": {
+    "nodes": [],
+    "edges": []
+  },
+  "notes": [
+    "Use qrAnchors for physical QR code locations. Each QR should include buildingId, floor, and anchorId.",
+    "Use rooms for destinations users can choose.",
+    "Use graph.nodes and graph.edges for walkable corridor routing in the DXF coordinate system."
+  ]
+}
