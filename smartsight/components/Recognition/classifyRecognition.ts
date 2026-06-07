@@ -1,41 +1,78 @@
-const DENOMINATIONS = [100000, 50000, 20000, 10000, 5000, 1000, 500, 100, 50, 20, 10];
-const BUS_LABELS = ["bus", "vehicle", "transport", "minibus", "motor vehicle"];
-const MONEY_LABELS = ["banknote", "money", "currency", "cash", "paper"];
+interface TextBlockLike {
+  text: string;
+  frame?: { width: number; height: number };
+}
+
+const PROMINENCE_RATIO = 0.02;
+const COLOR_MATCH_THRESHOLD = 60;
+
+// Зөвхөн rough filter — бодит дэвсгэртийн зургаас хэмжсэн өнгөөр нарийвчлал сайжруулж болно
+const BANKNOTE_COLORS: Record<number, string | string[]> = {
+  10: "#7FA86B",
+  20: "#8B4A6B",
+  50: "#8A6A3F",
+  100: "#6F5A9B",
+  500: "#4F8B5F",
+  1000: "#4E7FAE",
+  5000: "#B35B9E",
+  10000: "#C6A247",
+  20000: ["#A7B957", "#72539B"],
+};
+
+function blockArea(block: TextBlockLike): number {
+  if (!block.frame) return 0;
+  return block.frame.width * block.frame.height;
+}
+
+export function selectPrimaryBlock(blocks: TextBlockLike[]): TextBlockLike | null {
+  if (blocks.length === 0) return null;
+  return blocks.reduce((a, b) => (blockArea(b) > blockArea(a) ? b : a));
+}
+
+function isProminent(block: TextBlockLike, photoArea: number): boolean {
+  return photoArea > 0 && blockArea(block) / photoArea >= PROMINENCE_RATIO;
+}
 
 function extractNumber(text: string): string | null {
   const match = text.replace(/\s/g, "").match(/\d+/);
   return match ? match[0] : null;
 }
 
-function extractDenomination(text: string): string | null {
-  const cleaned = text.replace(/[,.\s]/g, "");
-  const found = DENOMINATIONS.find((d) => cleaned.includes(String(d)));
-  return found ? found.toLocaleString() : null;
+function isPlausibleLength(num: string, maxDigits: number): boolean {
+  return num.length > 0 && num.length <= maxDigits;
 }
 
-function isBusContext(labels: string[]): boolean {
-  return labels.some((l) => BUS_LABELS.includes(l.toLowerCase()));
+export function detectDoorNumber(block: TextBlockLike | null, photoArea: number): string | null {
+  if (!block || !isProminent(block, photoArea)) return null;
+  const num = extractNumber(block.text);
+  return num && isPlausibleLength(num, 4) ? `${num} дугаар тоот` : null;
 }
 
-function isMoneyContext(labels: string[]): boolean {
-  return labels.some((l) => MONEY_LABELS.includes(l.toLowerCase()));
+function hexToRgb(hex: string): [number, number, number] {
+  const value = parseInt(hex.replace("#", ""), 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
-export function classifyFromContext(labels: string[], text: string): string {
-  if (isBusContext(labels)) {
-    const num = extractNumber(text);
-    if (num) return `${num}-ын автобус`;
+function colorDistance(a: string, b: string): number {
+  const [r1, g1, b1] = hexToRgb(a);
+  const [r2, g2, b2] = hexToRgb(b);
+  return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
+}
+
+export function classifyByColor(hex: string): number | null {
+  let best: { value: number; distance: number } | null = null;
+
+  for (const [key, refs] of Object.entries(BANKNOTE_COLORS)) {
+    const refColors = Array.isArray(refs) ? refs : [refs];
+    const distance = Math.min(...refColors.map((ref) => colorDistance(hex, ref)));
+    if (!best || distance < best.distance) {
+      best = { value: Number(key), distance };
+    }
   }
 
-  if (isMoneyContext(labels)) {
-    const denom = extractDenomination(text);
-    if (denom) return `${denom} төгрөг`;
-  }
+  return best && best.distance <= COLOR_MATCH_THRESHOLD ? best.value : null;
+}
 
-  const num = extractNumber(text);
-  if (num) return `${num} дугаар тоот`;
-
-  if (text.trim().length > 0) return text.trim();
-
-  return "Танихгүй байна";
+export function formatMoney(value: number): string {
+  return `${value.toLocaleString()} төгрөг`;
 }

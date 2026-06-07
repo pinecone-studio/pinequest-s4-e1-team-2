@@ -1,5 +1,5 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { ActivityIndicator, StyleSheet, TouchableOpacity } from "react-native";
+import { StyleSheet, TouchableOpacity } from "react-native";
 import { Text, View } from "@/components/Themed";
 import { useRecognition } from "./useRecognition";
 
@@ -18,27 +18,9 @@ function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
   );
 }
 
-function ScanButton({ loading, onPress }: { loading: boolean; onPress: () => void }) {
-  return (
-    <TouchableOpacity
-      style={[styles.button, loading && styles.buttonDisabled]}
-      onPress={onPress}
-      disabled={loading}
-      accessible
-      accessibilityLabel={loading ? "Скан хийж байна" : "Скан хийх"}
-    >
-      {loading ? (
-        <ActivityIndicator color="#fff" size="large" />
-      ) : (
-        <Text style={styles.buttonText}>СКАН ХИЙХ</Text>
-      )}
-    </TouchableOpacity>
-  );
-}
-
 export default function RecognitionCamera() {
   const [permission, requestPermission] = useCameraPermissions();
-  const { cameraRef, result, loading, scan } = useRecognition();
+  const { cameraRef, result } = useRecognition();
 
   if (!permission?.granted) {
     return <PermissionPrompt onRequest={requestPermission} />;
@@ -46,13 +28,12 @@ export default function RecognitionCamera() {
 
   return (
     <View style={styles.container}>
-      <CameraView ref={cameraRef} style={styles.camera} />
+      <CameraView ref={cameraRef} style={styles.camera} autofocus="on" />
       {result ? (
         <View style={styles.resultCard}>
           <Text style={styles.resultText}>{result}</Text>
         </View>
       ) : null}
-      <ScanButton loading={loading} onPress={scan} />
     </View>
   );
 }
@@ -77,6 +58,5 @@ const styles = StyleSheet.create({
     minHeight: 80,
     justifyContent: "center",
   },
-  buttonDisabled: { opacity: 0.5 },
   buttonText: { color: "#fff", fontSize: 24, fontWeight: "bold" },
 });
