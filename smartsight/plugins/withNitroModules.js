@@ -1,4 +1,6 @@
-const { withSettingsGradle, withGradleProperties } = require('@expo/config-plugins');
+const { withSettingsGradle, withDangerousMod } = require('@expo/config-plugins');
+const fs = require('fs');
+const path = require('path');
 
 module.exports = function withNitroModules(config) {
   config = withSettingsGradle(config, (config) => {
@@ -14,12 +16,21 @@ module.exports = function withNitroModules(config) {
     return config;
   });
 
-  config = withGradleProperties(config, (config) => {
-    config.modResults = config.modResults.filter(
-      (item) => !(item.type === 'property' && item.key === 'org.gradle.java.home')
-    );
-    return config;
-  });
+  config = withDangerousMod(config, [
+    'android',
+    (config) => {
+      const gradlePropsPath = path.join(
+        config.modRequest.platformProjectRoot,
+        'gradle.properties'
+      );
+      if (fs.existsSync(gradlePropsPath)) {
+        let contents = fs.readFileSync(gradlePropsPath, 'utf-8');
+        contents = contents.replace(/^org\.gradle\.java\.home=.*\n?/m, '');
+        fs.writeFileSync(gradlePropsPath, contents);
+      }
+      return config;
+    },
+  ]);
 
   return config;
 };
