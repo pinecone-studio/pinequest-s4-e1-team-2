@@ -500,8 +500,16 @@ const FEATURES = [
     label: "Байршил",
     audio: require("@/assets/haptics/locationdefinebtn.mp3"),
   },
-];
-export function HomeScreen({ onNav }: { onNav: (id: string) => void }) {
+  {
+    id: "room-search",
+    label: "Өрөө хайх",
+  },
+] as const;
+export function HomeScreen({
+  onNav,
+}: {
+  onNav: (id: "obstacle" | "recognize" | "ocr" | "location" | "room-search") => void;
+}) {
   return (
     <Screen style={{ gap: 18 }}>
       <Logo size={24} />
@@ -545,6 +553,11 @@ export function HomeScreen({ onNav }: { onNav: (id: string) => void }) {
             />
           </View>
         </View>
+        <Button
+          label={FEATURES[4].label}
+          height={112}
+          onPress={() => onNav(FEATURES[4].id)}
+        />
       </View>
     </Screen>
   );
