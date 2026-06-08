@@ -15,17 +15,23 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="login" />
-      <Stack.Screen name="permission" />
-      <Stack.Screen name="home" />
-      <Stack.Screen name="obstacle" />
-      <Stack.Screen name="recognize" />
-      <Stack.Screen name="ocr" />
-      <Stack.Screen name="location" />
-      <Stack.Screen name="room-search" />
-      <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-    </Stack>
+    <SettingsProvider>
+      <PermissionProvider>
+        <BalancerProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="permission" />
+            <Stack.Screen name="home" />
+            <Stack.Screen name="obstacle" />
+            <Stack.Screen name="recognize" />
+            <Stack.Screen name="ocr" />
+            <Stack.Screen name="location" />
+            <Stack.Screen name="room-search" />
+            <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+          </Stack>
+        </BalancerProvider>
+      </PermissionProvider>
+    </SettingsProvider>
   );
 }

@@ -10,12 +10,12 @@ import {
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
+import { Audio, type AVPlaybackSource } from 'expo-av';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface A11yHapticButtonProps {
   /** require()'d audio file: require('../assets/audio/mn_submit.mp3') */
-  audioSource: ReturnType<typeof require>;
+  audioSource: AVPlaybackSource;
   /** Fires only on double tap */
   onAction: () => void;
   label: string;
@@ -29,7 +29,7 @@ interface A11yHapticButtonProps {
 // across all button instances — only one voice plays at a time
 let activeSound: Audio.Sound | null = null;
 
-async function playSoundFile(source: ReturnType<typeof require>) {
+async function playSoundFile(source: AVPlaybackSource) {
   try {
     // Unload whatever was playing before — no overlapping voices
     if (activeSound) {
