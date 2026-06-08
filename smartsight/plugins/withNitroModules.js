@@ -28,6 +28,17 @@ module.exports = function withNitroModules(config) {
         contents = contents.replace(/^org\.gradle\.java\.home=.*\n?/m, '');
         fs.writeFileSync(gradlePropsPath, contents);
       }
+
+      const localPropsPath = path.join(
+        config.modRequest.platformProjectRoot,
+        'local.properties'
+      );
+      if (fs.existsSync(localPropsPath)) {
+        let contents = fs.readFileSync(localPropsPath, 'utf-8');
+        contents = contents.replace(/^sdk\.dir=C:\\.*\n?/m, '');
+        fs.writeFileSync(localPropsPath, contents);
+      }
+
       return config;
     },
   ]);

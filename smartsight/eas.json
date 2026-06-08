@@ -6,10 +6,7 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "EXPO_USE_COMMUNITY_AUTOLINKING": "1"
-      }
+      "distribution": "internal"
     },
     "preview": {
       "distribution": "internal"
