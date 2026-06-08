@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 
@@ -12,6 +12,7 @@ import {
   type Room,
 } from "@/services/indoor-navigation";
 
+import { useVoice } from "@/src/voice";
 import { DestinationPicker } from "./DestinationPicker";
 import { RouteInstructions } from "./RouteInstructions";
 
@@ -44,6 +45,7 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
   const [startAnchor, setStartAnchor] = useState<QrAnchor | null>(null);
   const [scanError, setScanError] = useState("");
   const [permission, requestPermission] = useCameraPermissions();
+  const { speak } = useVoice();
 
   const handleQrScanned = ({ data: rawData }: { data: string }) => {
     if (startAnchor) return;
@@ -96,6 +98,12 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
     startAnchor?.id === "qr_1" && selectedRoom
       ? QR1_ROUTE_DISTANCE_METERS[selectedRoom.id] ?? route?.distanceMeters
       : route?.distanceMeters;
+
+  useEffect(() => {
+    if (!selectedRoom || instructions.length === 0) return;
+    const dist = distanceMeters != null ? `${distanceMeters}м` : '';
+    speak(`${selectedRoom.name} хүртэл ${dist}. ${instructions.join('. ')}`);
+  }, [instructions]);
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 18 }}>

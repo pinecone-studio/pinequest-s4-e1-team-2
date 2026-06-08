@@ -3,6 +3,7 @@ import { StyleSheet } from "react-native";
 import * as Location from "expo-location";
 
 import { Text, View } from "@/components/Themed";
+import { useVoice } from "@/src/voice";
 
 const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
 
@@ -141,6 +142,7 @@ async function getNearbyPlaceDescription(latitude: number, longitude: number) {
 }
 
 export function useSelfLocationTracker() {
+  const { speak } = useVoice();
   const [addressText, setAddressText] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -149,12 +151,14 @@ export function useSelfLocationTracker() {
     setLoading(true);
     setErrorMessage("");
     setAddressText("");
+    speak("Байршил тогтоож байна.");
 
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
 
       if (permission.status !== "granted") {
         setErrorMessage("Байршлын зөвшөөрөл өгнө үү.");
+        speak("Байршлын зөвшөөрөл өгнө үү.");
         return;
       }
 
@@ -201,8 +205,10 @@ export function useSelfLocationTracker() {
           : "Нарийвчлал тодорхойгүй";
 
       setAddressText(`${readableAddress}\n${accuracyText}`);
+      speak("Та одоо энд байна. " + readableAddress.replace(/\n/g, ". "));
     } catch {
       setErrorMessage("Байршил тогтооход алдаа гарлаа.");
+      speak("Байршил тогтооход алдаа гарлаа.");
     } finally {
       setLoading(false);
     }

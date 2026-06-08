@@ -2,7 +2,7 @@
 // Drop this into your /components/ folder.
 // Replaces all 5 ui-generated files (frame, component, screens-onboarding, screens-features, app)
 // Usage: import { T, Button, HomeScreen, ... } from '@/components/components'
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import {
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Audio, type AVPlaybackSource } from "expo-av";
+import { useVoice } from "@/src/voice";
 import { Screen } from "../Screen";
 import SelfLocationTracker, {
   useSelfLocationTracker,
@@ -635,75 +636,18 @@ function DistTag({ dir, dist }: { dir: string; dist: number }) {
   );
 }
 
-// 6 · RECOGNIZE
-const REC_DATA = [
-  { label: "11-р тоот хаалга", where: "урд байна", tag: "хаалга" },
-  { label: "32-р чиглэлийн автобус", where: "ирж байна", tag: "автобус" },
-  { label: "Гарц", where: "баруун тийш байна", tag: "гарц" },
-  { label: "Хүн", where: "зүүн талд байна", tag: "хүн" },
-];
-export function RecognizeScreen({ onBack }: { onBack: () => void }) {
-  const [run, setRun] = React.useState(false);
-  const [i, setI] = React.useState(0);
-  React.useEffect(() => {
-    if (!run) return;
-    const t = setInterval(() => setI((v) => (v + 1) % REC_DATA.length), 2400);
-    return () => clearInterval(t);
-  }, [run]);
-  const cur = REC_DATA[i];
-  return (
-    <Screen style={{ gap: 14 }}>
-      <TopBar title="Таних систем" onBack={onBack} />
-      <CameraView height={330}>
-        {run ? (
-          // Web used position:absolute with % values.
-          // RN supports % in position too — works the same here.
-          <>
-            <View style={ss.recognizeBox} />
-            <View style={ss.recognizeTag}>
-              <Text style={ss.recognizeTagText}>{cur.tag}</Text>
-            </View>
-          </>
-        ) : (
-          <Text style={ss.cameraHint}>Эхлүүлэхэд хүлээнэ</Text>
-        )}
-      </CameraView>
-      {run && (
-        <View style={ss.recognizeCard}>
-          <Text style={ss.recognizeLabel}>{cur.label}</Text>
-          <Text style={ss.recognizeWhere}>{cur.where}</Text>
-        </View>
-      )}
-      <View style={{ flex: 1 }} />
-      {!run ? (
-        <Button
-          label="Камер эхлүүлэх"
-          height={92}
-          onPress={() => {
-            setRun(true);
-            setI(0);
-          }}
-        />
-      ) : (
-        <Button
-          label="Зогсоох"
-          height={92}
-          danger
-          onPress={() => setRun(false)}
-        />
-      )}
-    </Screen>
-  );
-}
-
 // 7 · OCR
 const OCR_RESULT =
   "ЦАЙНЫ ГАЗАР «ОРХОН»\nНээлттэй: 09:00 – 22:00\nАмерикано — 5500₮\nКапучино — 6500₮\nСүүтэй цай — 3500₮";
 export function OcrScreen({ onBack }: { onBack: () => void }) {
   const [st, setSt] = React.useState<"idle" | "reading" | "done">("idle");
+  const { speak } = useVoice();
   const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  useEffect(() => {
+    if (st === 'done') speak(OCR_RESULT);
+  }, [st]);
   const capture = () => {
     setSt("reading");
     if (timer.current) {
@@ -959,34 +903,6 @@ export const ss = StyleSheet.create({
   distDirText: { color: "#fff", fontSize: 20, fontWeight: "700" },
   distNum: { color: "#fff", fontSize: 60, fontWeight: "700", lineHeight: 64 },
   distUnit: { color: "#fff", fontSize: 22, fontWeight: "500", marginBottom: 8 },
-  // recognize screen
-  recognizeBox: {
-    position: "absolute",
-    top: "24%",
-    left: "16%",
-    width: "56%",
-    height: "46%",
-    borderWidth: 3,
-    borderColor: "#fff",
-    borderRadius: 10,
-  },
-  recognizeTag: {
-    position: "absolute",
-    top: "18%",
-    left: "16%",
-    backgroundColor: "#fff",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  recognizeTagText: { fontSize: 16, fontWeight: "700", color: T.text },
-  recognizeCard: {
-    backgroundColor: T.surface,
-    borderRadius: T.rCard,
-    padding: 18,
-  },
-  recognizeLabel: { fontSize: 26, fontWeight: "700", color: T.text },
-  recognizeWhere: { fontSize: 20, color: T.muted, marginTop: 2 },
   // ocr screen
   ocrResult: {
     flex: 1,
