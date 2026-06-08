@@ -17,7 +17,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Audio } from 'expo-av';
-import { loadTensorflowModel, TensorflowModel } from 'react-native-fast-tflite';
 import * as ImageManipulator from 'expo-image-manipulator';
 import jpeg from 'jpeg-js';
 
@@ -178,7 +177,7 @@ export default function ObstacleDetector() {
   const [branchCount, setBranchCount]   = useState(0);
 
   const cameraRef      = useRef<CameraView>(null);
-  const modelRef       = useRef<TensorflowModel | null>(null);
+  const modelRef       = useRef<any | null>(null);
   const soundRef       = useRef<Audio.Sound | null>(null);
   const busyRef        = useRef(false);
   const lastAlertRef   = useRef(0);
@@ -193,6 +192,10 @@ export default function ObstacleDetector() {
     let alive = true;
     (async () => {
       try {
+        // Load this native module lazily. Importing it at the top level crashes
+        // when NitroModules is not available in the current native binary.
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { loadTensorflowModel } = require('react-native-fast-tflite');
         const m = await loadTensorflowModel(
           require('../assets/models/yolov8n.tflite'),
           [], // [] = CPU delegate (default). Android GPU: ['android-gpu'], iOS: ['metal']
@@ -200,7 +203,12 @@ export default function ObstacleDetector() {
         if (alive) { modelRef.current = m; setModelReady(true); }
         console.log('[ObstacleDetector] загвар бэлэн');
       } catch (err) {
-        console.error('[ObstacleDetector] загвар ачаалж чадсангүй:', err);
+        if (alive) {
+          modelRef.current = null;
+          setModelReady(false);
+          setModelError('Саад мэдрэгчийн native model одоогоор бэлэн биш');
+        }
+        console.warn('[ObstacleDetector] загвар/Nitro ачаалж чадсангүй:', err);
       }
     })();
     return () => { alive = false; };
