@@ -16,6 +16,7 @@ import {
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Audio, type AVPlaybackSource } from "expo-av";
+import { useSettings } from "@/providers/SettingsProvider";
 import { useVoice } from "@/src/voice";
 import { Screen } from "../Screen";
 import SelfLocationTracker, {
@@ -876,6 +877,35 @@ export const ss = StyleSheet.create({
   distDirText: { color: "#fff", fontSize: 20, fontWeight: "700" },
   distNum: { color: "#fff", fontSize: 60, fontWeight: "700", lineHeight: 64 },
   distUnit: { color: "#fff", fontSize: 22, fontWeight: "500", marginBottom: 8 },
+  // recognize screen
+  recognizeBox: {
+    position: "absolute",
+    left: "18%",
+    top: "24%",
+    width: "58%",
+    height: "38%",
+    borderWidth: 3,
+    borderColor: T.success,
+    borderRadius: 14,
+  },
+  recognizeTag: {
+    position: "absolute",
+    left: "18%",
+    top: "18%",
+    backgroundColor: T.success,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  recognizeTagText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  recognizeCard: {
+    backgroundColor: T.btnBg,
+    borderRadius: T.rCard,
+    padding: 18,
+    gap: 6,
+  },
+  recognizeLabel: { color: "#fff", fontSize: 26, fontWeight: "700" },
+  recognizeWhere: { color: "rgba(255,255,255,0.72)", fontSize: 20 },
   // ocr screen
   ocrResult: {
     flex: 1,

@@ -6,6 +6,8 @@ import { ScrollView, Text, View } from "react-native";
 import { Button } from "@/components/ui-generated/_comps";
 import { BalancerProvider } from "@/providers/useBalancer";
 import { useSettings } from "@/providers/SettingsProvider";
+import { useBolorSpellCheck } from "@/components/useBolorSpellCheck";
+import { Strings, useVoice } from "@/src/voice";
 import { Audio, AVPlaybackSource } from "expo-av";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import type { CameraType } from "expo-camera";
@@ -73,13 +75,17 @@ async function preparePhotoForOcr(uri: string): Promise<string> {
 
 function OcrScreen({ onBack }: { onBack: () => void }) {
   const [permission, requestPermission] = useCameraPermissions();
-  const [st, setSt] = useState<"idle" | "reading" | "done">("idle");
+  const [st, setSt] = useState<"idle" | "reading" | "correcting" | "done">(
+    "idle",
+  );
   const [ocrText, setOcrText] = useState<string>("");
   const [cameraReady, setCameraReady] = useState(false);
   const cameraFacing: CameraType = "back";
   const cameraRef = useRef<CameraView | null>(null);
   const activeSoundRef = useRef<Audio.Sound | null>(null);
   const { speechSpeed } = useSettings();
+  const { checkSpelling, reset: resetSpellCheck } = useBolorSpellCheck();
+  const { speak, stop } = useVoice();
 
   const preloaded = {
     instruction: require("@/assets/haptics/tilt-device-instruction.mp3"),
@@ -101,6 +107,12 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
       }
     };
   }, [permission, requestPermission]);
+
+  useEffect(() => {
+    return () => {
+      stop();
+    };
+  }, [stop]);
 
   async function playSoundFile(source: AVPlaybackSource) {
     try {
@@ -130,12 +142,27 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
     }
   }
 
+  async function stopGuideAudio() {
+    if (!activeSoundRef.current) return;
+
+    try {
+      await activeSoundRef.current.unloadAsync();
+    } catch {
+      // The guide clip may already be released by its playback callback.
+    } finally {
+      activeSoundRef.current = null;
+    }
+  }
+
   async function captureAndOcr() {
     if (!cameraRef.current || !cameraReady) {
       return;
     }
     setSt("reading");
     setOcrText("");
+    resetSpellCheck();
+    stop();
+    speak(Strings.ocr.reading, "urgent");
 
     try {
       // Take picture, then resize/compress it for OCR.space upload limits.
@@ -146,6 +173,8 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
 
       if (!photo?.uri) {
         setOcrText("(No image captured)");
+        await stopGuideAudio();
+        speak(Strings.ocr.noText, "urgent");
         setSt("done");
         return;
       }
@@ -158,15 +187,43 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
       // Send photo base64 to OCR
       const text = await runOcr(base64);
       console.log("[OCR] Parsed text:", text);
-      setOcrText(text || "(No text found)");
+      await stopGuideAudio();
+
+      setSt("correcting");
+      speak("Алдааг шалгаж байна.", "normal");
+      const correctedText = await correctOcrText(text);
+      const nextText = correctedText || "(No text found)";
+      setOcrText(nextText);
+      speakOcrResult(correctedText);
       setSt("done");
     } catch (error) {
       console.warn("[OCR] Capture or recognition failed:", error);
+      await stopGuideAudio();
       setOcrText(
         error instanceof Error ? `(Recognition failed: ${error.message})` : "(Recognition failed)",
       );
+      speak("Текст уншихад алдаа гарлаа.", "urgent");
       setSt("done");
     }
+  }
+
+  async function correctOcrText(text: string): Promise<string> {
+    if (!text.trim()) return text;
+
+    const spellCheckResult = await checkSpelling(text);
+    return spellCheckResult?.correctedText ?? text;
+  }
+
+  function speakOcrResult(text: string) {
+    const speechText = prepareTextForSpeech(text);
+    speak(speechText ? Strings.ocr.result(speechText) : Strings.ocr.noText, "urgent");
+  }
+
+  function prepareTextForSpeech(text: string): string {
+    return text
+      .replace(/\[\[([^\]]+)\]\]/g, "$1")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   useEffect(() => {
@@ -226,6 +283,8 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
         <Text style={ss.cameraHint}>
           {st === "reading"
             ? "Уншиж байна…"
+            : st === "correcting"
+              ? "Алдааг шалгаж байна…"
             : st === "done"
               ? "Дахин авахад хүлээнэ"
               : "Зураг авна"}
@@ -244,8 +303,10 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
             label="Дахин авах"
             height={92}
             onPress={() => {
+              stop();
               setSt("idle");
               setOcrText("");
+              resetSpellCheck();
             }}
           />
         ) : (
@@ -256,7 +317,10 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
           audioSource={preloaded.back}
           label="Буцах"
           height={92}
-          onPress={() => router.back()}
+          onPress={() => {
+            stop();
+            router.back();
+          }}
         />
       </Screen>
     </BalancerProvider>

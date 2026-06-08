@@ -174,6 +174,7 @@ export default function ObstacleDetector() {
   const [permission, requestPermission] = useCameraPermissions();
   const [dangerBoxes, setDangerBoxes]   = useState<BBox[]>([]);
   const [modelReady, setModelReady]     = useState(false);
+  const [modelError, setModelError]     = useState<string | null>(null);
   const [branchCount, setBranchCount]   = useState(0);
 
   const cameraRef      = useRef<CameraView>(null);
@@ -200,7 +201,7 @@ export default function ObstacleDetector() {
           require('../assets/models/yolov8n.tflite'),
           [], // [] = CPU delegate (default). Android GPU: ['android-gpu'], iOS: ['metal']
         );
-        if (alive) { modelRef.current = m; setModelReady(true); }
+        if (alive) { modelRef.current = m; setModelReady(true); setModelError(null); }
         console.log('[ObstacleDetector] загвар бэлэн');
       } catch (err) {
         if (alive) {
@@ -381,7 +382,7 @@ export default function ObstacleDetector() {
 
       {!modelReady && (
         <View style={s.loadingBadge}>
-          <Text style={s.loadingText}>Загвар ачаалж байна…</Text>
+          <Text style={s.loadingText}>{modelError ?? 'Загвар ачаалж байна…'}</Text>
         </View>
       )}
     </View>
