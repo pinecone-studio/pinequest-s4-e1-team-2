@@ -16,6 +16,7 @@ import {
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Audio, type AVPlaybackSource } from "expo-av";
+import { useSettings } from "@/providers/SettingsProvider";
 import { Screen } from "../Screen";
 import SelfLocationTracker, {
   useSelfLocationTracker,
@@ -92,6 +93,8 @@ export function Button({
   height = 122,
   fontSize = 24,
 }: ButtonProps) {
+  const { fontSize: globalFontSize } = useSettings();
+  const adjustedFontSize = Math.max(14, fontSize + (globalFontSize - 16));
   const scale = React.useRef(new Animated.Value(1)).current;
   const lastTapTime = React.useRef<number | null>(null);
   const singleTapTimer = React.useRef<ReturnType<typeof setTimeout> | null>(
@@ -162,10 +165,10 @@ export function Button({
         accessibilityRole="button"
         style={[ss.button, danger && { backgroundColor: T.danger }, { height }]}
       >
-        <Text style={[ss.buttonLabel, { fontSize }]}>{label}</Text>
+        <Text style={[ss.buttonLabel, { fontSize: adjustedFontSize }]}>{label}</Text>
         {sub && (
           <Text
-            style={[ss.buttonSub, { fontSize: Math.max(14, fontSize - 8) }]}
+            style={[ss.buttonSub, { fontSize: Math.max(14, adjustedFontSize - 8) }]}
           >
             {sub}
           </Text>
@@ -220,62 +223,7 @@ export function AlertBar({
   );
 }
 
-// ─────────────────────────────────────────────
-// CAMERA VIEW  (was: styled <div> with dark bg)
-// In a real app swap this out for expo-camera
-// ─────────────────────────────────────────────
-export function CameraView({
-  children,
-  height,
-  frame,
-}: {
-  children?: React.ReactNode;
-  height: number;
-  frame?: boolean;
-}) {
-  const borderAnim = React.useRef(new Animated.Value(1)).current;
-  React.useEffect(() => {
-    if (!frame) return;
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(borderAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: false,
-        }),
-        Animated.timing(borderAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: false,
-        }),
-      ]),
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [frame]);
-  const borderColor = borderAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["transparent", T.danger],
-  });
-  return (
-    <Animated.View
-      style={[
-        ss.cameraView,
-        { height },
-        frame && { borderWidth: 4, borderColor },
-      ]}
-    >
-      <Text style={ss.cameraLabel}>● КАМЕР · LIVE</Text>
-      {children}
-    </Animated.View>
-  );
-}
 
-// ─────────────────────────────────────────────
-// TAB BAR  (was: <div style={{height:78}}>)
-// In a real Expo Router app you'd use <Tabs> in _layout.tsx instead.
-// This component is a UI-only replica for screens that embed it manually.
-// ─────────────────────────────────────────────
 const TABS = [
   { id: "obstacle", label: "Саад" },
   { id: "recognize", label: "Таних" },
@@ -349,6 +297,23 @@ export function TopBar({
         style={ss.topBarBack}
       ></TouchableOpacity>
       <Text style={[ss.topBarTitle, big && { fontSize: 28 }]}>{title}</Text>
+    </View>
+  );
+}
+
+function CameraView({
+  height,
+  frame,
+  children,
+}: {
+  height: number;
+  frame?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <View style={[ss.cameraView, { height }, frame && ss.cameraViewFrame]}>
+      <Text style={ss.cameraLabel}>CAMERA</Text>
+      {children}
     </View>
   );
 }
@@ -683,57 +648,7 @@ export function RecognizeScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-// 7 · OCR
-const OCR_RESULT =
-  "ЦАЙНЫ ГАЗАР «ОРХОН»\nНээлттэй: 09:00 – 22:00\nАмерикано — 5500₮\nКапучино — 6500₮\nСүүтэй цай — 3500₮";
-export function OcrScreen({ onBack }: { onBack: () => void }) {
-  const [st, setSt] = React.useState<"idle" | "reading" | "done">("idle");
-  const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  const capture = () => {
-    setSt("reading");
-    if (timer.current) {
-      clearTimeout(timer.current);
-    }
-    // setTimeout works identically in RN — it's from the JS runtime, not the browser
-    timer.current = setTimeout(() => setSt("done"), 1400);
-  };
-  React.useEffect(
-    () => () => {
-      if (timer.current) {
-        clearTimeout(timer.current);
-      }
-    },
-    [],
-  );
-  return (
-    <Screen style={{ gap: 14 }}>
-      <TopBar title="Текст унших" onBack={onBack} />
-      <CameraView height={250}>
-        <Text style={ss.cameraHint}>
-          {st === "reading"
-            ? "Уншиж байна…"
-            : st === "done"
-              ? "Дахин авахад хүлээнэ"
-              : "Зураг авна"}
-        </Text>
-      </CameraView>
-      {st === "done" && (
-        // ScrollView inside a Screen — needs flex:1 so it doesn't overflow
-        <ScrollView style={ss.ocrResult} showsVerticalScrollIndicator={false}>
-          <Text style={ss.ocrResultText}>{OCR_RESULT}</Text>
-        </ScrollView>
-      )}
-      {st !== "done" && <View style={{ flex: 1 }} />}
-      {st === "done" ? (
-        <Button label="Дахин авах" height={92} onPress={() => setSt("idle")} />
-      ) : (
-        <Button label="Зураг авах" height={92} onPress={capture} />
-      )}
-    </Screen>
-  );
-}
+// 7 · OCR - moved
 
 // 8 · LOCATION
 const LOC = {
@@ -819,6 +734,10 @@ export const ss = StyleSheet.create({
     position: "relative",
     alignItems: "center",
     justifyContent: "center",
+  },
+  cameraViewFrame: {
+    borderWidth: 3,
+    borderColor: T.danger,
   },
   cameraLabel: {
     position: "absolute",

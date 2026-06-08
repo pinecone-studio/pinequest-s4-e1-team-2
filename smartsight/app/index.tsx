@@ -72,6 +72,11 @@ export default function App() {
         audioSource={SOUNDS.registeredUser}
         onPress={() => router.push("/login")}
       />
+      <Button
+        label="Тохиргоо"
+        audioSource={SOUNDS.registeredUser}
+        onPress={() => router.push("/settings")}
+      />
     </View>
   );
 }
