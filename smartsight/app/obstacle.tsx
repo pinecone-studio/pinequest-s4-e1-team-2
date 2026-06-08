@@ -1,6 +1,5 @@
-import { ObstacleScreen } from '@/components/ui-generated/_comps'
-import { router } from 'expo-router'
+import ObstacleDetector from '@/components/ObstacleDetector'
 
 export default function ObstaclePage() {
-  return <ObstacleScreen onBack={() => router.replace('/home')} />
+  return <ObstacleDetector />
 }

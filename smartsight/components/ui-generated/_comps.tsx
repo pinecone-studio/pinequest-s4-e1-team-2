@@ -2,7 +2,7 @@
 // Drop this into your /components/ folder.
 // Replaces all 5 ui-generated files (frame, component, screens-onboarding, screens-features, app)
 // Usage: import { T, Button, HomeScreen, ... } from '@/components/components'
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Audio, type AVPlaybackSource } from "expo-av";
-import { useSettings } from "@/providers/SettingsProvider";
+import { useVoice } from "@/src/voice";
 import { Screen } from "../Screen";
 import SelfLocationTracker, {
   useSelfLocationTracker,
@@ -465,8 +465,16 @@ const FEATURES = [
     label: "Байршил",
     audio: require("@/assets/haptics/locationdefinebtn.mp3"),
   },
-];
-export function HomeScreen({ onNav }: { onNav: (id: string) => void }) {
+  {
+    id: "room-search",
+    label: "Өрөө хайх",
+  },
+] as const;
+export function HomeScreen({
+  onNav,
+}: {
+  onNav: (id: "obstacle" | "recognize" | "ocr" | "location" | "room-search") => void;
+}) {
   return (
     <Screen style={{ gap: 18 }}>
       <Logo size={24} />
@@ -510,6 +518,11 @@ export function HomeScreen({ onNav }: { onNav: (id: string) => void }) {
             />
           </View>
         </View>
+        <Button
+          label={FEATURES[4].label}
+          height={112}
+          onPress={() => onNav(FEATURES[4].id)}
+        />
       </View>
     </Screen>
   );
@@ -647,8 +660,6 @@ export function RecognizeScreen({ onBack }: { onBack: () => void }) {
     </Screen>
   );
 }
-
-// 7 · OCR - moved
 
 // 8 · LOCATION
 const LOC = {
@@ -865,34 +876,6 @@ export const ss = StyleSheet.create({
   distDirText: { color: "#fff", fontSize: 20, fontWeight: "700" },
   distNum: { color: "#fff", fontSize: 60, fontWeight: "700", lineHeight: 64 },
   distUnit: { color: "#fff", fontSize: 22, fontWeight: "500", marginBottom: 8 },
-  // recognize screen
-  recognizeBox: {
-    position: "absolute",
-    top: "24%",
-    left: "16%",
-    width: "56%",
-    height: "46%",
-    borderWidth: 3,
-    borderColor: "#fff",
-    borderRadius: 10,
-  },
-  recognizeTag: {
-    position: "absolute",
-    top: "18%",
-    left: "16%",
-    backgroundColor: "#fff",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  recognizeTagText: { fontSize: 16, fontWeight: "700", color: T.text },
-  recognizeCard: {
-    backgroundColor: T.surface,
-    borderRadius: T.rCard,
-    padding: 18,
-  },
-  recognizeLabel: { fontSize: 26, fontWeight: "700", color: T.text },
-  recognizeWhere: { fontSize: 20, color: T.muted, marginTop: 2 },
   // ocr screen
   ocrResult: {
     flex: 1,

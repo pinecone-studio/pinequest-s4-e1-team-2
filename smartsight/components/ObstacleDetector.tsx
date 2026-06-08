@@ -58,6 +58,11 @@ const DANGER = { xMin: 0.25, xMax: 0.75, yMin: 0.18, yMax: 0.85 } as const;
 const DETECT_INTERVAL_MS = 500;
 const ALERT_COOLDOWN_MS  = 1500;
 
+// ── Roboflow мөчир таних ────────────────────────────────────────────────────
+const ROBOFLOW_API_KEY = process.env.EXPO_PUBLIC_ROBOFLOW_API_KEY;
+const BRANCH_MODEL_ID = 'tree-branch-detection-jemc7/1';
+const BRANCH_CHECK_INTERVAL = 3000; // 3 секунд тутам шалгана
+
 // ── Төрлүүд ───────────────────────────────────────────────────────────────────
 
 interface BBox {
@@ -169,6 +174,7 @@ export default function ObstacleDetector() {
   const [permission, requestPermission] = useCameraPermissions();
   const [dangerBoxes, setDangerBoxes]   = useState<BBox[]>([]);
   const [modelReady, setModelReady]     = useState(false);
+  const [branchCount, setBranchCount]   = useState(0);
 
   const cameraRef      = useRef<CameraView>(null);
   const modelRef       = useRef<any | null>(null);
@@ -178,6 +184,8 @@ export default function ObstacleDetector() {
   const timerRef       = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const activeRef      = useRef(true);
   const cameraReadyRef = useRef(false);
+  const branchBusyRef  = useRef(false);
+  const branchTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   // YOLOv8n загвар ачаалах
   useEffect(() => {
@@ -245,6 +253,39 @@ export default function ObstacleDetector() {
     await soundRef.current?.replayAsync();
   }, []);
 
+  // Мөчир таних (Roboflow API)
+  const detectBranches = useCallback(async () => {
+    if (branchBusyRef.current || !activeRef.current || !cameraReadyRef.current) return;
+    if (!cameraRef.current || !ROBOFLOW_API_KEY) return;
+
+    branchBusyRef.current = true;
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.4, base64: true, shutterSound: false });
+      if (!photo?.base64) return;
+
+      const response = await fetch(
+        `https://serverless.roboflow.com/${BRANCH_MODEL_ID}?api_key=${ROBOFLOW_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: photo.base64,
+        },
+      );
+      const data = await response.json();
+      const branches = data.predictions ?? [];
+      setBranchCount(branches.length);
+
+      if (branches.length > 0) {
+        console.log(`[ObstacleDetector] ${branches.length} мөчир илэрлээ`);
+        await triggerAlert();
+      }
+    } catch (err) {
+      console.warn('[ObstacleDetector] branch detect алдаа:', err);
+    } finally {
+      branchBusyRef.current = false;
+    }
+  }, [triggerAlert]);
+
   const detect = useCallback(async () => {
     if (busyRef.current || !activeRef.current || !cameraReadyRef.current) return;
     if (!cameraRef.current || !modelRef.current) return;
@@ -282,8 +323,12 @@ export default function ObstacleDetector() {
   useEffect(() => {
     if (!permission?.granted) return;
     timerRef.current = setInterval(detect, DETECT_INTERVAL_MS);
-    return () => clearInterval(timerRef.current);
-  }, [permission?.granted, detect]);
+    branchTimerRef.current = setInterval(detectBranches, BRANCH_CHECK_INTERVAL);
+    return () => {
+      clearInterval(timerRef.current);
+      clearInterval(branchTimerRef.current);
+    };
+  }, [permission?.granted, detect, detectBranches]);
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -326,6 +371,14 @@ export default function ObstacleDetector() {
         </View>
       )}
 
+      {/* Мөчир илэрсэн */}
+      {branchCount > 0 && (
+        <View style={s.branchBanner}>
+          <Text style={s.bannerText}>🌿 МӨЧИР ИЛЭРЛЭЭ</Text>
+          <Text style={s.bannerSub}>{branchCount} мөчир</Text>
+        </View>
+      )}
+
       {!modelReady && (
         <View style={s.loadingBadge}>
           <Text style={s.loadingText}>Загвар ачаалж байна…</Text>
@@ -362,6 +415,13 @@ const s = StyleSheet.create({
   },
   bannerText: { color: '#fff', fontSize: 22, fontWeight: '700', letterSpacing: 1.5 },
   bannerSub:  { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 4 },
+
+  branchBanner: {
+    position: 'absolute', bottom: 160, alignSelf: 'center',
+    backgroundColor: 'rgba(34,139,34,0.92)',
+    paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12,
+    alignItems: 'center',
+  },
 
   loadingBadge: {
     position: 'absolute', top: 20, alignSelf: 'center',
