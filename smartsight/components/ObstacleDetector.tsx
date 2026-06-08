@@ -15,6 +15,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Audio } from 'expo-av';
 import { loadTensorflowModel, TensorflowModel } from 'react-native-fast-tflite';
@@ -187,6 +188,8 @@ export default function ObstacleDetector() {
   const cameraReadyRef = useRef(false);
   const branchBusyRef  = useRef(false);
   const branchTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const cameraBusyRef  = useRef(false);
+  const router         = useRouter();
 
   // YOLOv8n загвар ачаалах
   useEffect(() => {
@@ -247,12 +250,14 @@ export default function ObstacleDetector() {
 
   // Мөчир таних (Roboflow API)
   const detectBranches = useCallback(async () => {
-    if (branchBusyRef.current || !activeRef.current || !cameraReadyRef.current) return;
+    if (branchBusyRef.current || cameraBusyRef.current || !activeRef.current || !cameraReadyRef.current) return;
     if (!cameraRef.current || !ROBOFLOW_API_KEY) return;
 
     branchBusyRef.current = true;
+    cameraBusyRef.current = true;
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.4, base64: true, shutterSound: false });
+      cameraBusyRef.current = false;
       if (!photo?.base64) return;
 
       const response = await fetch(
@@ -275,17 +280,21 @@ export default function ObstacleDetector() {
       console.warn('[ObstacleDetector] branch detect алдаа:', err);
     } finally {
       branchBusyRef.current = false;
+      cameraBusyRef.current = false;
     }
   }, [triggerAlert]);
 
   const detect = useCallback(async () => {
-    if (busyRef.current || !activeRef.current || !cameraReadyRef.current) return;
+    if (busyRef.current || cameraBusyRef.current || !activeRef.current || !cameraReadyRef.current) return;
     if (!cameraRef.current || !modelRef.current) return;
 
     busyRef.current = true;
+    cameraBusyRef.current = true;
     try {
       // 1. Frame авах
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, shutterSound: false });
+      cameraBusyRef.current = false;
+      if (!photo) return;
 
       // 2. 640×640 тензор болгох
       const tensor = await imageUriToTensor(photo.uri);
@@ -309,6 +318,7 @@ export default function ObstacleDetector() {
       console.error('[ObstacleDetector] detect алдаа:', err);
     } finally {
       busyRef.current = false;
+      cameraBusyRef.current = false;
     }
   }, [triggerAlert]);
 
@@ -376,6 +386,10 @@ export default function ObstacleDetector() {
           <Text style={s.loadingText}>Загвар ачаалж байна…</Text>
         </View>
       )}
+
+      <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+        <Text style={s.backBtnText}>← Буцах</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -420,4 +434,10 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8,
   },
   loadingText: { color: '#fff', fontSize: 13 },
+
+  backBtn: {
+    position: 'absolute', top: 50, left: 20,
+    backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
+  },
+  backBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
