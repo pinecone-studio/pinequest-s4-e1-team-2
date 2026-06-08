@@ -1,6 +1,5 @@
-import { RecognizeScreen } from '@/components/ui-generated/_comps'
-import { router } from 'expo-router'
+import RecognitionCamera from '@/components/Recognition'
 
 export default function RecognizePage() {
-  return <RecognizeScreen onBack={() => router.replace('/home')} />
+  return <RecognitionCamera />
 }

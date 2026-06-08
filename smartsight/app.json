@@ -25,8 +25,6 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
       "package": "com.anonymous.smartsight"
@@ -52,6 +50,12 @@
     },
     "assets": [
       "./assets/models/yolov8n.tflite"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4d9c3776-37c4-4858-a83f-d60e6984210c"
+      }
+    }
   }
 }
