@@ -2,7 +2,7 @@
 // Drop this into your /components/ folder.
 // Replaces all 5 ui-generated files (frame, component, screens-onboarding, screens-features, app)
 // Usage: import { T, Button, HomeScreen, ... } from '@/components/components'
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import {
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Audio, type AVPlaybackSource } from "expo-av";
+import { useVoice } from "@/src/voice";
 import { Screen } from "../Screen";
 import SelfLocationTracker, {
   useSelfLocationTracker,
@@ -640,9 +641,13 @@ const OCR_RESULT =
   "ЦАЙНЫ ГАЗАР «ОРХОН»\nНээлттэй: 09:00 – 22:00\nАмерикано — 5500₮\nКапучино — 6500₮\nСүүтэй цай — 3500₮";
 export function OcrScreen({ onBack }: { onBack: () => void }) {
   const [st, setSt] = React.useState<"idle" | "reading" | "done">("idle");
+  const { speak } = useVoice();
   const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  useEffect(() => {
+    if (st === 'done') speak(OCR_RESULT);
+  }, [st]);
   const capture = () => {
     setSt("reading");
     if (timer.current) {
