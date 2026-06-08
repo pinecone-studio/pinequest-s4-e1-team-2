@@ -67,6 +67,8 @@ export function useRecognition() {
       const doorDetection = detectDoorNumber(block, photo.width * photo.height);
       if (doorDetection) {
         announce(doorDetection);
+      } else if (block?.text?.trim()) {
+        announce(block.text.trim());
       } else {
         lastAnnouncedRef.current = null;
       }
