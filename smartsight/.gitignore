@@ -34,6 +34,16 @@ yarn-error.*
 .env
 .env*.local
 
+# Python
+.venv/
+*.pt
+*.onnx
+*.npy
+*_saved_model/
+
+# Vim swap
+*.swp
+
 # typescript
 *.tsbuildinfo
 

@@ -1,5 +1,4 @@
-
-import { AudioPlayer, createAudioPlayer } from 'expo-audio';
+import { AudioPlayer, createAudioPlayer } from "expo-audio";
 
 let activePlayer: AudioPlayer | null = null;
 
@@ -14,8 +13,7 @@ export async function playSoundFile(source: ReturnType<typeof require>) {
     const player = createAudioPlayer(source);
     activePlayer = player;
     player.play();
-
   } catch (err) {
-    console.warn('[A11y] Audio playback failed:', err);
+    console.warn("[A11y] Audio playback failed:", err);
   }
 }
