@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { CameraView } from "expo-camera";
 import TextRecognition from "@react-native-ml-kit/text-recognition";
-import Tts from "react-native-tts";
+import { speech } from "@/src/voice";
 import {
   classifyByColor,
   detectDoorNumber,
@@ -21,15 +21,11 @@ export function useRecognition() {
   const moneyMatchCountRef = useRef(0);
   const [result, setResult] = useState("");
 
-  useEffect(() => {
-    Tts.setDefaultLanguage("mn-MN");
-  }, []);
-
   const announce = useCallback((text: string) => {
     if (text === lastAnnouncedRef.current) return;
     lastAnnouncedRef.current = text;
     setResult(text);
-    Tts.speak(text);
+    speech.speak(text);
   }, []);
 
   const handleMoney = useCallback(
@@ -49,8 +45,9 @@ export function useRecognition() {
 
       if (moneyMatchCountRef.current >= MONEY_CONSISTENCY_THRESHOLD) {
         announce(formatMoney(denomination));
+        return true;
       }
-      return true;
+      return false;
     },
     [announce]
   );
@@ -71,6 +68,8 @@ export function useRecognition() {
       const doorDetection = detectDoorNumber(block, photo.width * photo.height);
       if (doorDetection) {
         announce(doorDetection);
+      } else if (block?.text?.trim()) {
+        announce(block.text.trim());
       } else {
         lastAnnouncedRef.current = null;
       }

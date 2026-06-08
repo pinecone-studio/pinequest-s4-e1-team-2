@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text } from "react-native";
+import { StyleSheet, View, Text } from "react-native";
 import { Audio, type AVPlaybackSource } from "expo-av";
 import { Button, Logo } from "@/components/ui-generated/_comps";
 import { useRouter } from "expo-router";
@@ -56,8 +56,8 @@ export default function App() {
   return (
     <View style={{ flex: 1, justifyContent: "center", gap: 20, padding: 20 }}>
       <View style={{ alignItems: "center" }}>
-        <Logo size={34} />
-        <Text>
+        <Logo size={40} />
+        <Text style={styles.helpText}>
           Бүртгэлтэй хэрэглэгч бол "Нэвтрэх", шинээр эхлэгч бол "Шинэ хэрэглэгч"
           товчийг дарна уу.
         </Text>
@@ -72,6 +72,20 @@ export default function App() {
         audioSource={SOUNDS.registeredUser}
         onPress={() => router.push("/login")}
       />
+      <Button
+        label="Тохиргоо"
+        audioSource={SOUNDS.registeredUser}
+        onPress={() => router.push("/settings")}
+      />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  helpText: {
+    fontSize: 32,
+    fontWeight: "600",
+    lineHeight: 40,
+    textAlign: "center",
+  },
+});

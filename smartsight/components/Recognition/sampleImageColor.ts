@@ -29,22 +29,26 @@ function averageRgb(pixels: Uint8Array | Float32Array): [number, number, number]
  * Уг банкнот камерын кадрын төвд байх тул зургийн төвөөс квадрат бүс түүвэрлэж дундаж өнгийг тооцно.
  */
 export async function sampleCenterColor(uri: string): Promise<string | null> {
-  const data = await Skia.Data.fromURI(uri);
-  const image = Skia.Image.MakeImageFromEncoded(data);
-  if (!image) return null;
+  try {
+    const data = await Skia.Data.fromURI(uri);
+    const image = Skia.Image.MakeImageFromEncoded(data);
+    if (!image) return null;
 
-  const regionSize = Math.floor(Math.min(image.width(), image.height()) * SAMPLE_REGION_RATIO);
-  const srcX = Math.floor((image.width() - regionSize) / 2);
-  const srcY = Math.floor((image.height() - regionSize) / 2);
+    const regionSize = Math.floor(Math.min(image.width(), image.height()) * SAMPLE_REGION_RATIO);
+    const srcX = Math.floor((image.width() - regionSize) / 2);
+    const srcY = Math.floor((image.height() - regionSize) / 2);
 
-  const pixels = image.readPixels(srcX, srcY, {
-    width: regionSize,
-    height: regionSize,
-    colorType: ColorType.RGBA_8888,
-    alphaType: AlphaType.Unpremul,
-  });
-  if (!pixels) return null;
+    const pixels = image.readPixels(srcX, srcY, {
+      width: regionSize,
+      height: regionSize,
+      colorType: ColorType.RGBA_8888,
+      alphaType: AlphaType.Unpremul,
+    });
+    if (!pixels) return null;
 
-  const [r, g, b] = averageRgb(pixels);
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    const [r, g, b] = averageRgb(pixels);
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  } catch {
+    return null;
+  }
 }

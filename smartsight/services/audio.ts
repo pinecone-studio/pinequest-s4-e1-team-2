@@ -10,7 +10,7 @@ export async function playSoundFile(source: AudioSource) {
       activePlayer = null;
     }
 
-    const player = createAudioPlayer(source);
+    const player = createAudioPlayer(source as AudioSource);
     activePlayer = player;
     player.play();
   } catch (err) {

@@ -2,7 +2,7 @@
 // Drop this into your /components/ folder.
 // Replaces all 5 ui-generated files (frame, component, screens-onboarding, screens-features, app)
 // Usage: import { T, Button, HomeScreen, ... } from '@/components/components'
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import {
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Audio, type AVPlaybackSource } from "expo-av";
+import { useSettings } from "@/providers/SettingsProvider";
+import { useVoice } from "@/src/voice";
 import { Screen } from "../Screen";
 import SelfLocationTracker, {
   useSelfLocationTracker,
@@ -92,6 +94,8 @@ export function Button({
   height = 122,
   fontSize = 24,
 }: ButtonProps) {
+  const { fontSize: globalFontSize } = useSettings();
+  const adjustedFontSize = Math.max(14, fontSize + (globalFontSize - 16));
   const scale = React.useRef(new Animated.Value(1)).current;
   const lastTapTime = React.useRef<number | null>(null);
   const singleTapTimer = React.useRef<ReturnType<typeof setTimeout> | null>(
@@ -162,10 +166,10 @@ export function Button({
         accessibilityRole="button"
         style={[ss.button, danger && { backgroundColor: T.danger }, { height }]}
       >
-        <Text style={[ss.buttonLabel, { fontSize }]}>{label}</Text>
+        <Text style={[ss.buttonLabel, { fontSize: adjustedFontSize }]}>{label}</Text>
         {sub && (
           <Text
-            style={[ss.buttonSub, { fontSize: Math.max(14, fontSize - 8) }]}
+            style={[ss.buttonSub, { fontSize: Math.max(14, adjustedFontSize - 8) }]}
           >
             {sub}
           </Text>
@@ -220,62 +224,7 @@ export function AlertBar({
   );
 }
 
-// ─────────────────────────────────────────────
-// CAMERA VIEW  (was: styled <div> with dark bg)
-// In a real app swap this out for expo-camera
-// ─────────────────────────────────────────────
-export function CameraView({
-  children,
-  height,
-  frame,
-}: {
-  children?: React.ReactNode;
-  height: number;
-  frame?: boolean;
-}) {
-  const borderAnim = React.useRef(new Animated.Value(1)).current;
-  React.useEffect(() => {
-    if (!frame) return;
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(borderAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: false,
-        }),
-        Animated.timing(borderAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: false,
-        }),
-      ]),
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [frame]);
-  const borderColor = borderAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["transparent", T.danger],
-  });
-  return (
-    <Animated.View
-      style={[
-        ss.cameraView,
-        { height },
-        frame && { borderWidth: 4, borderColor },
-      ]}
-    >
-      <Text style={ss.cameraLabel}>● КАМЕР · LIVE</Text>
-      {children}
-    </Animated.View>
-  );
-}
 
-// ─────────────────────────────────────────────
-// TAB BAR  (was: <div style={{height:78}}>)
-// In a real Expo Router app you'd use <Tabs> in _layout.tsx instead.
-// This component is a UI-only replica for screens that embed it manually.
-// ─────────────────────────────────────────────
 const TABS = [
   { id: "obstacle", label: "Саад" },
   { id: "recognize", label: "Таних" },
@@ -349,6 +298,23 @@ export function TopBar({
         style={ss.topBarBack}
       ></TouchableOpacity>
       <Text style={[ss.topBarTitle, big && { fontSize: 28 }]}>{title}</Text>
+    </View>
+  );
+}
+
+function CameraView({
+  height,
+  frame,
+  children,
+}: {
+  height: number;
+  frame?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <View style={[ss.cameraView, { height }, frame && ss.cameraViewFrame]}>
+      <Text style={ss.cameraLabel}>CAMERA</Text>
+      {children}
     </View>
   );
 }
@@ -696,58 +662,6 @@ export function RecognizeScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-// 7 · OCR
-const OCR_RESULT =
-  "ЦАЙНЫ ГАЗАР «ОРХОН»\nНээлттэй: 09:00 – 22:00\nАмерикано — 5500₮\nКапучино — 6500₮\nСүүтэй цай — 3500₮";
-export function OcrScreen({ onBack }: { onBack: () => void }) {
-  const [st, setSt] = React.useState<"idle" | "reading" | "done">("idle");
-  const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  const capture = () => {
-    setSt("reading");
-    if (timer.current) {
-      clearTimeout(timer.current);
-    }
-    // setTimeout works identically in RN — it's from the JS runtime, not the browser
-    timer.current = setTimeout(() => setSt("done"), 1400);
-  };
-  React.useEffect(
-    () => () => {
-      if (timer.current) {
-        clearTimeout(timer.current);
-      }
-    },
-    [],
-  );
-  return (
-    <Screen style={{ gap: 14 }}>
-      <TopBar title="Текст унших" onBack={onBack} />
-      <CameraView height={250}>
-        <Text style={ss.cameraHint}>
-          {st === "reading"
-            ? "Уншиж байна…"
-            : st === "done"
-              ? "Дахин авахад хүлээнэ"
-              : "Зураг авна"}
-        </Text>
-      </CameraView>
-      {st === "done" && (
-        // ScrollView inside a Screen — needs flex:1 so it doesn't overflow
-        <ScrollView style={ss.ocrResult} showsVerticalScrollIndicator={false}>
-          <Text style={ss.ocrResultText}>{OCR_RESULT}</Text>
-        </ScrollView>
-      )}
-      {st !== "done" && <View style={{ flex: 1 }} />}
-      {st === "done" ? (
-        <Button label="Дахин авах" height={92} onPress={() => setSt("idle")} />
-      ) : (
-        <Button label="Зураг авах" height={92} onPress={capture} />
-      )}
-    </Screen>
-  );
-}
-
 // 8 · LOCATION
 const LOC = {
   name: "Энхтайваны өргөн чөлөө",
@@ -832,6 +746,10 @@ export const ss = StyleSheet.create({
     position: "relative",
     alignItems: "center",
     justifyContent: "center",
+  },
+  cameraViewFrame: {
+    borderWidth: 3,
+    borderColor: T.danger,
   },
   cameraLabel: {
     position: "absolute",
@@ -962,31 +880,32 @@ export const ss = StyleSheet.create({
   // recognize screen
   recognizeBox: {
     position: "absolute",
+    left: "18%",
     top: "24%",
-    left: "16%",
-    width: "56%",
-    height: "46%",
+    width: "58%",
+    height: "38%",
     borderWidth: 3,
-    borderColor: "#fff",
-    borderRadius: 10,
+    borderColor: T.success,
+    borderRadius: 14,
   },
   recognizeTag: {
     position: "absolute",
+    left: "18%",
     top: "18%",
-    left: "16%",
-    backgroundColor: "#fff",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: T.success,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
-  recognizeTagText: { fontSize: 16, fontWeight: "700", color: T.text },
+  recognizeTagText: { color: "#fff", fontSize: 18, fontWeight: "700" },
   recognizeCard: {
-    backgroundColor: T.surface,
+    backgroundColor: T.btnBg,
     borderRadius: T.rCard,
     padding: 18,
+    gap: 6,
   },
-  recognizeLabel: { fontSize: 26, fontWeight: "700", color: T.text },
-  recognizeWhere: { fontSize: 20, color: T.muted, marginTop: 2 },
+  recognizeLabel: { color: "#fff", fontSize: 26, fontWeight: "700" },
+  recognizeWhere: { color: "rgba(255,255,255,0.72)", fontSize: 20 },
   // ocr screen
   ocrResult: {
     flex: 1,
