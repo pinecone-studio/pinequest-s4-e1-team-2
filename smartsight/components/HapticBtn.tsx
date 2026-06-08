@@ -37,8 +37,8 @@ async function playSoundFile(source: ReturnType<typeof require>) {
       activeSound = null;
     }
 
-    const { sound } = await Audio.Sound.createAsync(source, {
-      shouldPlay: true,   // play immediately after load
+    const { sound } = await Audio.Sound.createAsync(source as any, {
+      shouldPlay: true,
     });
 
     activeSound = sound;

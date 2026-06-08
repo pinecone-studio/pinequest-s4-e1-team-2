@@ -1,4 +1,4 @@
-import { AudioPlayer, createAudioPlayer } from "expo-audio";
+import { AudioPlayer, AudioSource, createAudioPlayer } from "expo-audio";
 
 let activePlayer: AudioPlayer | null = null;
 
@@ -10,7 +10,7 @@ export async function playSoundFile(source: ReturnType<typeof require>) {
       activePlayer = null;
     }
 
-    const player = createAudioPlayer(source);
+    const player = createAudioPlayer(source as AudioSource);
     activePlayer = player;
     player.play();
   } catch (err) {
