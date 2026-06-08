@@ -11,7 +11,6 @@ const ROUTES = {
 
 type HomeRoute = "obstacle" | "recognize" | "ocr" | "location" | "room-search";
 
-type HomeRoute = "obstacle" | "recognize" | "ocr" | "location" | "room-search";
 
 export default function HomePage() {
   const router = useRouter()
