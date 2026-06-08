@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { CameraView } from "expo-camera";
 import TextRecognition from "@react-native-ml-kit/text-recognition";
-import * as Speech from "expo-speech";
+import { speech } from "@/src/voice";
 import {
   classifyByColor,
   detectDoorNumber,
@@ -25,7 +25,7 @@ export function useRecognition() {
     if (text === lastAnnouncedRef.current) return;
     lastAnnouncedRef.current = text;
     setResult(text);
-    Speech.speak(text, { language: "mn-MN" });
+    speech.speak(text);
   }, []);
 
   const handleMoney = useCallback(
