@@ -45,8 +45,9 @@ export function useRecognition() {
 
       if (moneyMatchCountRef.current >= MONEY_CONSISTENCY_THRESHOLD) {
         announce(formatMoney(denomination));
+        return true;
       }
-      return true;
+      return false;
     },
     [announce]
   );
