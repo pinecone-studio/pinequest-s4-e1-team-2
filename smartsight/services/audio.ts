@@ -2,7 +2,7 @@ import { AudioPlayer, AudioSource, createAudioPlayer } from "expo-audio";
 
 let activePlayer: AudioPlayer | null = null;
 
-export async function playSoundFile(source: ReturnType<typeof require>) {
+export async function playSoundFile(source: AudioSource) {
   try {
     // Stop previous audio
     if (activePlayer) {
