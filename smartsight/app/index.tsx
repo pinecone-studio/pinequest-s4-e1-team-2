@@ -73,6 +73,10 @@ export default function App() {
         onPress={() => router.push("/login")}
       />
       <Button
+        label="Шууд орох (туршилт)"
+        onPress={() => router.replace("/home")}
+      />
+      <Button
         label="Тохиргоо"
         audioSource={SOUNDS.registeredUser}
         onPress={() => router.push("/settings")}
