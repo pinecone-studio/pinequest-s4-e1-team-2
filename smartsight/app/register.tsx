@@ -1,14 +1,41 @@
-import { Button, Logo } from "@/components/ui-generated/_comps";
-import { Screen } from "@/components/Screen";
-import { Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useRouter } from "expo-router";
-import { Audio, AVPlaybackSource } from "expo-av";
-import { useRef, useEffect } from "react";
+import { Audio, type AVPlaybackSource } from "expo-av";
+import { Screen } from "@/components/Screen";
+import { Button, Logo } from "@/components/ui-generated/_comps";
+import { supabase } from "@/lib/supabase";
 import { useSettings } from "@/providers/SettingsProvider";
+
+const BUTTON_ARM_TIME_MS = 3000;
+
+const SOUNDS = {
+  register: require("../assets/haptics/registerbtn.mp3"),
+  back: require("../assets/haptics/backbtn.mp3"),
+};
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [armedButton, setArmedButton] = useState<string | null>(null);
+  const fullNameInputRef = useRef<TextInput>(null);
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
   const activeSoundRef = useRef<Audio.Sound | null>(null);
+  const armTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { speechSpeed } = useSettings();
 
   async function playSoundFile(source: AVPlaybackSource) {
@@ -24,9 +51,6 @@ export default function RegisterPage() {
         shouldPlay: true,
       });
       activeSoundRef.current = sound;
-
-      // Apply app speech speed setting to playback
-      // [control] — connective point where speed value is applied
       await sound.setRateAsync(speechSpeed ?? 1, true);
 
       sound.setOnPlaybackStatusUpdate((status) => {
@@ -36,55 +60,230 @@ export default function RegisterPage() {
         }
       });
     } catch (err) {
-      console.warn("[A11y] Welcome audio failed:", err);
+      console.warn("[A11y] Button audio failed:", err);
     }
   }
-  const SOUNDS = {
-    continue: require("../assets/haptics/continuebtn.mp3"),
-    back: require("../assets/haptics/backbtn.mp3"),
-  };
+
+  function handleTwoPressButton(
+    buttonId: string,
+    audioSource: AVPlaybackSource,
+    action: () => void,
+  ) {
+    if (armedButton === buttonId) {
+      if (armTimerRef.current) {
+        clearTimeout(armTimerRef.current);
+        armTimerRef.current = null;
+      }
+      setArmedButton(null);
+      action();
+      return;
+    }
+
+    setArmedButton(buttonId);
+    void playSoundFile(audioSource);
+
+    if (armTimerRef.current) {
+      clearTimeout(armTimerRef.current);
+    }
+    armTimerRef.current = setTimeout(() => {
+      setArmedButton(null);
+      armTimerRef.current = null;
+    }, BUTTON_ARM_TIME_MS);
+  }
 
   useEffect(() => {
-    async function startupAudio() {
-      const { granted } = await Audio.requestPermissionsAsync();
-      if (!granted) return;
-      await playSoundFile(require("../assets/haptics/introduction.mp3"));
-    }
-    startupAudio();
+    return () => {
+      if (armTimerRef.current) {
+        clearTimeout(armTimerRef.current);
+      }
+      if (activeSoundRef.current) {
+        activeSoundRef.current.unloadAsync();
+        activeSoundRef.current = null;
+      }
+    };
   }, []);
-  return (
-    <Screen style={{ justifyContent: "center", gap: 20 }}>
-      <View style={{ alignItems: "center" }}>
-        <Logo size={34} />
-        <Text style={{ fontSize: 26, fontWeight: "700", marginTop: 18 }}>
-          Шинэ хэрэглэгч
-        </Text>
-        <Text
-          style={{
-            fontSize: 16,
-            color: "#666",
-            marginTop: 8,
-            textAlign: "center",
-            maxWidth: 280,
-          }}
-        >
-          Танд Smart Sight програмын үндсэн функцуудтай танилцах боломж байна.
-        </Text>
-      </View>
 
-      <Button
-        audioSource={SOUNDS.continue}
-        label="Бүртгүүлэх"
-        sub="Шинэ ашиглагч бол энд дарна уу"
-        height={140}
-        onPress={() => router.replace("/onboarding")}
-      />
-      <Button
-        audioSource={SOUNDS.back}
-        label="Буцах"
-        height={92}
-        onPress={() => router.back()}
-      />
+  async function handleRegister() {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!fullName.trim() || !normalizedEmail || !password) {
+      Alert.alert("Мэдээлэл дутуу", "Бүх талбарыг бөглөнө үү.");
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert(
+        "Нууц үг богино байна",
+        "Нууц үг хамгийн багадаа 6 тэмдэгт байна.",
+      );
+      return;
+    }
+
+    setLoading(true);
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+      options: {
+        data: {
+          full_name: fullName.trim(),
+        },
+      },
+    });
+    setLoading(false);
+
+    if (error) {
+      Alert.alert("Бүртгүүлэхэд алдаа гарлаа", error.message);
+      return;
+    }
+
+    if (data.session) {
+      Alert.alert(
+        "Бүртгэл үүслээ",
+        "Supabase дээр Confirm email асаалттай бол хэрэглэгч имэйлээ баталгаажуулсны дараа нэвтэрнэ.",
+        [{ text: "OK", onPress: () => router.replace("/login") }],
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Баталгаажуулах имэйл илгээгдлээ",
+      "Имэйлээ шалгаад баталгаажуулсны дараа нэвтэрнэ үү.",
+      [{ text: "OK", onPress: () => router.replace("/login") }],
+    );
+  }
+
+  return (
+    <Screen>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.wrap}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Logo size={34} />
+            <Text style={styles.subtitle}>Шинэ бүртгэл үүсгэнэ үү.</Text>
+          </View>
+
+          <View style={styles.form}>
+            <Pressable onPress={() => fullNameInputRef.current?.focus()}>
+              <Text style={styles.label}>Та өөрийн нэрээ оруулна уу.</Text>
+            </Pressable>
+            <TextInput
+              ref={fullNameInputRef}
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Жишээ: Бат-Эрдэнэ"
+              autoComplete="name"
+              editable={!loading}
+              returnKeyType="next"
+              textContentType="name"
+              style={styles.input}
+            />
+
+            <Pressable onPress={() => emailInputRef.current?.focus()}>
+              <Text style={styles.label}>Та имэйл хаягаа оруулна уу.</Text>
+            </Pressable>
+            <TextInput
+              ref={emailInputRef}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Жишээ: name@example.com"
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
+              editable={!loading}
+              keyboardType="email-address"
+              returnKeyType="next"
+              textContentType="emailAddress"
+              style={styles.input}
+            />
+
+            <Pressable onPress={() => passwordInputRef.current?.focus()}>
+              <Text style={styles.label}>Та нууц үгээ оруулна уу.</Text>
+            </Pressable>
+            <TextInput
+              ref={passwordInputRef}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Хамгийн багадаа 6 тэмдэгт"
+              autoCapitalize="none"
+              autoComplete="new-password"
+              editable={!loading}
+              returnKeyType="done"
+              secureTextEntry
+              textContentType="newPassword"
+              style={styles.input}
+            />
+
+            <Button
+              label={loading ? "Түр хүлээнэ үү" : "Бүртгүүлэх"}
+              height={88}
+              onPress={
+                loading
+                  ? undefined
+                  : () =>
+                      handleTwoPressButton(
+                        "register",
+                        SOUNDS.register,
+                        handleRegister,
+                      )
+              }
+            />
+
+            <Button
+              label="Буцах"
+              height={88}
+              onPress={() =>
+                handleTwoPressButton("back", SOUNDS.back, () => router.back())
+              }
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  wrap: {
+    flex: 1,
+  },
+  content: {
+    flexGrow: 1,
+    justifyContent: "center",
+    gap: 20,
+  },
+  header: {
+    alignItems: "center",
+  },
+  subtitle: {
+    fontSize: 26,
+    color: "#111",
+    marginTop: 8,
+    textAlign: "center",
+    maxWidth: 320,
+  },
+  form: {
+    gap: 10,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111",
+    marginTop: 4,
+  },
+  input: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#d4d4d4",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 18,
+    backgroundColor: "#fff",
+  },
+});

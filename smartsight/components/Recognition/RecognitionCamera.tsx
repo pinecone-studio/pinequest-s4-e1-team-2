@@ -1,7 +1,8 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { StyleSheet, TouchableOpacity } from "react-native";
+import { ActivityIndicator, StyleSheet, TouchableOpacity } from "react-native";
 import { Text, View } from "@/components/Themed";
-import { useRecognition } from "./useRecognition";
+import { useRouter } from "expo-router";
+import { useRecognition, type ResultType } from "./useRecognition";
 
 function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
   return (
@@ -18,9 +19,29 @@ function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
   );
 }
 
+// [7] Төрөл бүрийн өнгө
+function getCardStyle(type: ResultType) {
+  switch (type) {
+    case "money": return styles.resultCardMoney;
+    case "door":  return styles.resultCardDoor;
+    case "text":  return styles.resultCardText;
+    default:      return styles.resultCard;
+  }
+}
+
+function getTypeLabel(type: ResultType): string {
+  switch (type) {
+    case "money": return "Мөнгө";
+    case "door":  return "Өрөөний дугаар";
+    case "text":  return "Текст";
+    default:      return "";
+  }
+}
+
 export default function RecognitionCamera() {
   const [permission, requestPermission] = useCameraPermissions();
-  const { cameraRef, result } = useRecognition();
+  const { cameraRef, result, resultType, isScanning } = useRecognition();
+  const router = useRouter();
 
   if (!permission?.granted) {
     return <PermissionPrompt onRequest={requestPermission} />;
@@ -29,11 +50,28 @@ export default function RecognitionCamera() {
   return (
     <View style={styles.container}>
       <CameraView ref={cameraRef} style={styles.camera} autofocus="on" />
+
+      {/* [2] Scanning indicator */}
+      {isScanning && !result && (
+        <View style={styles.scanningBadge}>
+          <ActivityIndicator size="small" color="#fff" />
+          <Text style={styles.scanningText}>Хайж байна...</Text>
+        </View>
+      )}
+
+      {/* [7] Төрөл ялгасан result card */}
       {result ? (
-        <View style={styles.resultCard}>
+        <View style={[styles.resultCard, getCardStyle(resultType)]}>
+          {resultType !== "none" && (
+            <Text style={styles.typeLabel}>{getTypeLabel(resultType)}</Text>
+          )}
           <Text style={styles.resultText}>{result}</Text>
         </View>
       ) : null}
+
+      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <Text style={styles.backBtnText}>Буцах</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -42,13 +80,50 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
   camera: { flex: 1 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
+
   resultCard: {
+    position: "absolute", bottom: 80, left: 16, right: 16,
     backgroundColor: "rgba(0,0,0,0.85)",
     padding: 20,
-    margin: 16,
     borderRadius: 12,
+    alignItems: "center",
+  },
+  // [7] Мөнгө — ногоон
+  resultCardMoney: {
+    backgroundColor: "rgba(34,139,34,0.92)",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  // [7] Дугаар — цэнхэр
+  resultCardDoor: {
+    backgroundColor: "rgba(30,100,200,0.92)",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  // [7] Текст — хар
+  resultCardText: {
+    backgroundColor: "rgba(0,0,0,0.85)",
+  },
+
+  typeLabel: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 1,
+    marginBottom: 6,
+    textTransform: "uppercase",
   },
   resultText: { color: "#fff", fontSize: 28, textAlign: "center", fontWeight: "bold" },
+
+  // [2] Scanning indicator
+  scanningBadge: {
+    position: "absolute", top: 100, alignSelf: "center",
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+  },
+  scanningText: { color: "#fff", fontSize: 14 },
+
   button: {
     backgroundColor: "#1a1a1a",
     padding: 32,
@@ -59,4 +134,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonText: { color: "#fff", fontSize: 24, fontWeight: "bold" },
+  backBtn: {
+    position: "absolute", top: 50, left: 20,
+    backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
+  },
+  backBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });
