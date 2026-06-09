@@ -30,7 +30,8 @@ async function playButtonSound(source?: AVPlaybackSource) {
   if (!source) return;
   try {
     if (activeButtonSound) {
-      await activeButtonSound.unloadAsync();
+      await activeButtonSound.stopAsync().catch(() => {});
+      await activeButtonSound.unloadAsync().catch(() => {});
       activeButtonSound = null;
     }
     await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
@@ -166,10 +167,15 @@ export function Button({
         accessibilityRole="button"
         style={[ss.button, danger && { backgroundColor: T.danger }, { height }]}
       >
-        <Text style={[ss.buttonLabel, { fontSize: adjustedFontSize }]}>{label}</Text>
+        <Text style={[ss.buttonLabel, { fontSize: adjustedFontSize }]}>
+          {label}
+        </Text>
         {sub && (
           <Text
-            style={[ss.buttonSub, { fontSize: Math.max(14, adjustedFontSize - 8) }]}
+            style={[
+              ss.buttonSub,
+              { fontSize: Math.max(14, adjustedFontSize - 8) },
+            ]}
           >
             {sub}
           </Text>
@@ -223,7 +229,6 @@ export function AlertBar({
     </Animated.View>
   );
 }
-
 
 const TABS = [
   { id: "obstacle", label: "Саад" },
@@ -469,12 +474,15 @@ const FEATURES = [
   {
     id: "room-search",
     label: "Өрөө хайх",
+    audio: require("@/assets/haptics/SearchRoomBtn.mp3"),
   },
 ] as const;
 export function HomeScreen({
   onNav,
 }: {
-  onNav: (id: "obstacle" | "recognize" | "ocr" | "location" | "room-search") => void;
+  onNav: (
+    id: "obstacle" | "recognize" | "ocr" | "location" | "room-search",
+  ) => void;
 }) {
   return (
     <Screen style={{ gap: 18 }}>
@@ -523,6 +531,7 @@ export function HomeScreen({
           label={FEATURES[4].label}
           height={112}
           onPress={() => onNav(FEATURES[4].id)}
+          audioSource={FEATURES[4].audio}
         />
       </View>
     </Screen>

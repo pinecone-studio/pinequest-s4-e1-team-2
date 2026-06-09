@@ -13,7 +13,8 @@ export default function App() {
   async function playSoundFile(source: AVPlaybackSource) {
     try {
       if (activeSoundRef.current) {
-        await activeSoundRef.current.unloadAsync();
+        await activeSoundRef.current.stopAsync().catch(() => {});
+        await activeSoundRef.current.unloadAsync().catch(() => {});
         activeSoundRef.current = null;
       }
 
@@ -42,6 +43,7 @@ export default function App() {
   const SOUNDS = {
     newUser: require("../assets/haptics/newuserbtn.mp3"),
     registeredUser: require("../assets/haptics/registereduserbtn.mp3"),
+    settings: require("@/assets/haptics/SettingsBtn.mp3")
   };
 
   useEffect(() => {
@@ -78,7 +80,7 @@ export default function App() {
       />
       <Button
         label="Тохиргоо"
-        audioSource={SOUNDS.registeredUser}
+        audioSource={SOUNDS.settings}
         onPress={() => router.push("/settings")}
       />
     </View>
