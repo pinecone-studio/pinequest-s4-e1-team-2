@@ -55,7 +55,8 @@ export default function OnboardingScreen() {
   async function playSoundFile(source: AVPlaybackSource) {
     try {
       if (activeSoundRef.current) {
-        await activeSoundRef.current.unloadAsync();
+        await activeSoundRef.current.stopAsync().catch(() => {});
+        await activeSoundRef.current.unloadAsync().catch(() => {});
         activeSoundRef.current = null;
       }
 
