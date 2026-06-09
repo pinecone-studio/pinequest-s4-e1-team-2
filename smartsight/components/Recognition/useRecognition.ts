@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
+import { Vibration } from "react-native";
 import { CameraView } from "expo-camera";
 import TextRecognition from "@react-native-ml-kit/text-recognition";
 import { speech } from "@/src/voice";
@@ -13,6 +14,11 @@ import { sampleCenterColor } from "./sampleImageColor";
 const SCAN_INTERVAL_MS = 1200;
 const MONEY_CONSISTENCY_THRESHOLD = 3;
 
+// [6] Объект жижиг байвал "ойртуулна уу" гэж хэлэх threshold
+const MIN_BLOCK_RATIO = 0.01; // зургийн 1%-аас бага бол жижиг
+
+export type ResultType = "money" | "door" | "text" | "scanning" | "none";
+
 export function useRecognition() {
   const cameraRef = useRef<CameraView>(null);
   const busyRef = useRef(false);
@@ -20,12 +26,48 @@ export function useRecognition() {
   const moneyCandidateRef = useRef<number | null>(null);
   const moneyMatchCountRef = useRef(0);
   const [result, setResult] = useState("");
+  const [resultType, setResultType] = useState<ResultType>("none");
+  const [isScanning, setIsScanning] = useState(false);
+  const lastResultRef = useRef<string>("");       // [3] Сүүлийн үр дүн хадгалах
+  const lastResultTypeRef = useRef<ResultType>("none");
+  const tooSmallCountRef = useRef(0);             // [6] Жижиг объект тоолох
+  const hasSpokenIntroRef = useRef(false);         // [1] Заавар нэг л удаа
 
-  const announce = useCallback((text: string) => {
+  // [1] Нэвтрэх үед дуут заавар
+  useEffect(() => {
+    if (!hasSpokenIntroRef.current) {
+      hasSpokenIntroRef.current = true;
+      setTimeout(() => {
+        speech.speak("Мөнгө эсвэл хаалганы дугаар камер руу харуулна уу");
+      }, 500);
+    }
+  }, []);
+
+  const announce = useCallback((text: string, type: ResultType) => {
     if (text === lastAnnouncedRef.current) return;
     lastAnnouncedRef.current = text;
     setResult(text);
-    speech.speak(text);
+    setResultType(type);
+    lastResultRef.current = text;
+    lastResultTypeRef.current = type;
+    tooSmallCountRef.current = 0;
+
+    // [5] Haptic feedback — мөнгө/дугаар олсон үед
+    if (type === "money") {
+      Vibration.vibrate([0, 100, 50, 100, 50, 100]); // 3x хурдан
+    } else if (type === "door") {
+      Vibration.vibrate([0, 200, 100, 200]); // 2x дунд
+    } else {
+      Vibration.vibrate(100); // 1x зөөлөн
+    }
+
+    // [4] Мөнгө олсон бол 2 удаа хэлэх
+    if (type === "money") {
+      speech.speak(text);
+      setTimeout(() => speech.speak(text), 1500);
+    } else {
+      speech.speak(text);
+    }
   }, []);
 
   const handleMoney = useCallback(
@@ -44,7 +86,7 @@ export function useRecognition() {
       }
 
       if (moneyMatchCountRef.current >= MONEY_CONSISTENCY_THRESHOLD) {
-        announce(formatMoney(denomination));
+        announce(formatMoney(denomination), "money");
         return true;
       }
       return false;
@@ -55,9 +97,13 @@ export function useRecognition() {
   const tick = useCallback(async () => {
     if (!cameraRef.current || busyRef.current) return;
     busyRef.current = true;
+    setIsScanning(true); // [2] Scanning indicator
 
     try {
       const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 1, shutterSound: false });
+      if (!photo) return;
+
+      const photoArea = photo.width * photo.height;
 
       const hex = await sampleCenterColor(photo.uri);
       const denomination = hex ? classifyByColor(hex) : null;
@@ -65,18 +111,45 @@ export function useRecognition() {
 
       const ocrResult = await TextRecognition.recognize(photo.uri);
       const block = selectPrimaryBlock(ocrResult.blocks);
-      const doorDetection = detectDoorNumber(block, photo.width * photo.height);
+
+      // [6] Блок олдсон ч жижиг бол "ойртуулна уу"
+      if (block?.frame && photoArea > 0) {
+        const blockRatio = (block.frame.width * block.frame.height) / photoArea;
+        if (blockRatio < MIN_BLOCK_RATIO && block.text?.trim()) {
+          tooSmallCountRef.current++;
+          if (tooSmallCountRef.current >= 3) {
+            speech.speak("Ойртуулна уу, текст жижиг байна");
+            tooSmallCountRef.current = 0;
+          }
+          // [3] Сүүлийн үр дүн хадгалах
+          if (lastResultRef.current) {
+            setResult(lastResultRef.current);
+            setResultType(lastResultTypeRef.current);
+          }
+          return;
+        }
+      }
+
+      const doorDetection = detectDoorNumber(block, photoArea);
       if (doorDetection) {
-        announce(doorDetection);
+        announce(doorDetection, "door");
       } else if (block?.text?.trim()) {
-        announce(block.text.trim());
+        announce(block.text.trim(), "text");
       } else {
         lastAnnouncedRef.current = null;
+        // [3] Юу ч олохгүй бол сүүлийн үр дүнг үлдээх
+        if (lastResultRef.current) {
+          setResult(lastResultRef.current);
+          setResultType(lastResultTypeRef.current);
+        } else {
+          setResultType("none");
+        }
       }
     } catch {
       // ignore — try again on the next interval tick
     } finally {
       busyRef.current = false;
+      setIsScanning(false);
     }
   }, [announce, handleMoney]);
 
@@ -85,5 +158,5 @@ export function useRecognition() {
     return () => clearInterval(id);
   }, [tick]);
 
-  return { cameraRef, result };
+  return { cameraRef, result, resultType, isScanning };
 }
