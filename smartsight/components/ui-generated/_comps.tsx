@@ -12,6 +12,7 @@ import {
   Animated,
   Dimensions,
   Platform,
+  PanResponder,
 } from "react-native";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -484,57 +485,90 @@ export function HomeScreen({
     id: "obstacle" | "recognize" | "ocr" | "location" | "room-search",
   ) => void;
 }) {
+  const didOpenRecognitionRef = React.useRef(false);
+
+  const recognizeSwipe = React.useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (event, gestureState) => {
+          const touchCount = event.nativeEvent.touches.length;
+          const horizontalMove = Math.abs(gestureState.dx);
+          const verticalMove = Math.abs(gestureState.dy);
+
+          return (
+            touchCount === 2 &&
+            horizontalMove > 30 &&
+            horizontalMove > verticalMove * 1.5
+          );
+        },
+        onPanResponderMove: (_event, gestureState) => {
+          if (didOpenRecognitionRef.current) return;
+
+          const isTwoFingerHorizontalSwipe =
+            Math.abs(gestureState.dx) > 90 && Math.abs(gestureState.dy) < 70;
+
+          if (isTwoFingerHorizontalSwipe) {
+            didOpenRecognitionRef.current = true;
+            onNav("recognize");
+          }
+        },
+        onPanResponderRelease: () => {
+          didOpenRecognitionRef.current = false;
+        },
+        onPanResponderTerminate: () => {
+          didOpenRecognitionRef.current = false;
+        },
+      }),
+    [onNav],
+  );
+
   return (
-    <Screen style={{ gap: 18 }}>
-      <Logo size={24} />
-      <Text style={ss.homeHeading}>Юу хийх вэ?</Text>
-      {/* Web used CSS grid 1fr 1fr. RN doesn't have CSS grid.
-          Trick: wrap every 2 items in a row View */}
-      <View style={{ flex: 1, gap: 14 }}>
-        <View style={ss.featureRow}>
-          <View style={{ flex: 1 }}>
-            <Button
-              label={FEATURES[0].label}
-              height={150}
-              onPress={() => onNav(FEATURES[0].id)}
-              audioSource={FEATURES[0].audio}
-            />
+    <View style={{ flex: 1 }} {...recognizeSwipe.panHandlers}>
+      <Screen style={{ gap: 18 }}>
+        <Logo size={24} />
+        <Text style={ss.homeHeading}>Юу хийх вэ?</Text>
+        {/* Web used CSS grid 1fr 1fr. RN doesn't have CSS grid.
+            Trick: wrap every 2 items in a row View */}
+        <View style={{ flex: 1, gap: 14 }}>
+          <View style={ss.featureRow}>
+            <View style={{ flex: 1 }}>
+              <Button
+                label={FEATURES[0].label}
+                height={150}
+                onPress={() => onNav(FEATURES[0].id)}
+                audioSource={FEATURES[0].audio}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button
+                label={FEATURES[2].label}
+                height={150}
+                onPress={() => onNav(FEATURES[2].id)}
+                audioSource={FEATURES[2].audio}
+              />
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Button
-              label={FEATURES[1].label}
-              height={150}
-              onPress={() => onNav(FEATURES[1].id)}
-              audioSource={FEATURES[1].audio}
-            />
+          <View style={ss.featureRow}>
+            <View style={{ flex: 1 }}>
+              <Button
+                label={FEATURES[3].label}
+                height={150}
+                onPress={() => onNav(FEATURES[3].id)}
+                audioSource={FEATURES[3].audio}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button
+                label={FEATURES[4].label}
+                height={150}
+                onPress={() => onNav(FEATURES[4].id)}
+                audioSource={FEATURES[4].audio}
+              />
+            </View>
           </View>
         </View>
-        <View style={ss.featureRow}>
-          <View style={{ flex: 1 }}>
-            <Button
-              label={FEATURES[2].label}
-              height={150}
-              onPress={() => onNav(FEATURES[2].id)}
-              audioSource={FEATURES[2].audio}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button
-              label={FEATURES[3].label}
-              height={150}
-              onPress={() => onNav(FEATURES[3].id)}
-              audioSource={FEATURES[3].audio}
-            />
-          </View>
-        </View>
-        <Button
-          label={FEATURES[4].label}
-          height={112}
-          onPress={() => onNav(FEATURES[4].id)}
-          audioSource={FEATURES[4].audio}
-        />
-      </View>
-    </Screen>
+      </Screen>
+    </View>
   );
 }
 
