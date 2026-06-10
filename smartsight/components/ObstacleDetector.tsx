@@ -24,7 +24,7 @@ import { AppState, AppStateStatus, StyleSheet, Text, TouchableOpacity, Vibration
 import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Audio } from 'expo-av';
-import * as Speech from 'expo-speech';
+import { speech } from '@/src/voice';
 import * as ImageManipulator from 'expo-image-manipulator';
 import jpeg from 'jpeg-js';
 import { useSettings } from '@/providers/SettingsProvider';
@@ -189,8 +189,7 @@ function speakDangers(dangers: BBox[], approachingIds: Set<number>) {
   if (text === lastSpeakText && now - lastSpeakTime < SPEAK_COOLDOWN_MS) return;
   lastSpeakTime = now;
   lastSpeakText = text;
-  Speech.stop();
-  Speech.speak(text, { language: 'mn-MN', rate: 1.2 });
+  speech.speak(text, 'urgent');
 }
 
 // ── Төрлүүд ───────────────────────────────────────────────────────────────────
@@ -484,8 +483,7 @@ export default function ObstacleDetector() {
 
       if (branches.length > 0) {
         console.log(`[ObstacleDetector] ${branches.length} мөчир илэрлээ`);
-        Speech.stop();
-        Speech.speak(`Мөчир ${branches.length} ширхэг, толгойгоо нугал`, { language: 'mn-MN', rate: 1.2 });
+        speech.speak(`Мөчир ${branches.length} ширхэг, толгойгоо нугал`, 'urgent');
         Vibration.vibrate([0, 200, 100, 200, 100, 200]);
       }
     } catch (err) {
