@@ -29,7 +29,6 @@ function matchCommand(text: string): string | null {
 
 export function VoiceControlProvider({ children }: { children: React.ReactNode }) {
   const [listening, setListening] = useState(false);
-  const prevVolumeRef = useRef<number>(0.5);
   const listeningRef = useRef(false);
 
   const startListening = useCallback(async () => {
@@ -53,7 +52,7 @@ export function VoiceControlProvider({ children }: { children: React.ReactNode }
     if (route === 'back') {
       router.back();
     } else {
-      router.replace(route as `/${string}`);
+      router.replace(route as any);
     }
   });
 
@@ -70,17 +69,9 @@ export function VoiceControlProvider({ children }: { children: React.ReactNode }
   // Android: Volume товч дарахад идэвхждэг
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-
-    VolumeManager.getVolume('music').then((v) => {
-      prevVolumeRef.current = typeof v === 'number' ? v : (v as any).volume ?? 0.5;
-    });
-
     const sub = VolumeManager.addVolumeListener(() => {
-      // Volume-г өмнөх түвшинд буцаана (дуу чанга/намсахаас сэргийлж)
-      VolumeManager.setVolume(prevVolumeRef.current, { showUI: false });
       startListening();
     });
-
     return () => sub.remove();
   }, [startListening]);
 
