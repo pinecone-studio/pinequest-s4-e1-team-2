@@ -3,8 +3,9 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { PermissionProvider } from "../providers/usePermission";
 import { SettingsProvider } from "@/providers/SettingsProvider";
+import { AccessibilityProvider } from "@/providers/AccesibilityProvider";
+import { ExploreOverlay } from "@/components/ExploreOverlay";
 import { VoiceProvider } from "@/src/voice";
-import { VoiceControlProvider } from "@/providers/VoiceControlProvider";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -17,9 +18,10 @@ export default function RootLayout() {
 
   return (
     <VoiceProvider>
-      <PermissionProvider>
-        <SettingsProvider>
-          <VoiceControlProvider>
+      <AccessibilityProvider>
+        <PermissionProvider>
+          <SettingsProvider>
+            <ExploreOverlay />
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
               <Stack.Screen name="login" />
@@ -34,9 +36,9 @@ export default function RootLayout() {
               <Stack.Screen name="settings" />
               <Stack.Screen name="modal" options={{ presentation: "modal" }} />
             </Stack>
-          </VoiceControlProvider>
-        </SettingsProvider>
-      </PermissionProvider>
+          </SettingsProvider>
+        </PermissionProvider>
+      </AccessibilityProvider>
     </VoiceProvider>
-  );
+  );;''
 }

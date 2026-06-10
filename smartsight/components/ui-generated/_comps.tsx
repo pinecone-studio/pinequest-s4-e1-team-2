@@ -2,7 +2,7 @@
 // Drop this into your /components/ folder.
 // Replaces all 5 ui-generated files (frame, component, screens-onboarding, screens-features, app)
 // Usage: import { T, Button, HomeScreen, ... } from '@/components/components'
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -15,40 +15,16 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Audio, type AVPlaybackSource } from "expo-av";
+import type { AVPlaybackSource } from "expo-av";
 import { useSettings } from "@/providers/SettingsProvider";
 import { useVoice } from "@/src/voice";
 import { Screen } from "../Screen";
+import { AccessibleElement } from "../AccessibleElement";
+import { useAccessibility } from "@/providers/AccesibilityProvider";
 import SelfLocationTracker, {
   useSelfLocationTracker,
 } from "../SelfLocationTracker";
 const { width: SCREEN_W } = Dimensions.get("window");
-
-let activeButtonSound: Audio.Sound | null = null;
-
-async function playButtonSound(source?: AVPlaybackSource) {
-  if (!source) return;
-  try {
-    if (activeButtonSound) {
-      await activeButtonSound.stopAsync().catch(() => {});
-      await activeButtonSound.unloadAsync().catch(() => {});
-      activeButtonSound = null;
-    }
-    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-    const { sound } = await Audio.Sound.createAsync(source, {
-      shouldPlay: true,
-    });
-    activeButtonSound = sound;
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) {
-        sound.unloadAsync();
-        activeButtonSound = null;
-      }
-    });
-  } catch (err) {
-    console.warn("[A11y] Button audio failed:", err);
-  }
-}
 
 // ─────────────────────────────────────────────
 // DESIGN TOKENS  (was: const T = { ... })
@@ -78,7 +54,6 @@ interface ButtonProps {
   onPress?: () => void;
   onAction?: () => void;
   audioSource?: AVPlaybackSource;
-  doubleTapDelay?: number;
   danger?: boolean;
   height?: number;
   fontSize?: number;
@@ -90,97 +65,78 @@ export function Button({
   onPress,
   onAction,
   audioSource,
-  doubleTapDelay = 300,
   danger,
   height = 122,
   fontSize = 24,
 }: ButtonProps) {
   const { fontSize: globalFontSize } = useSettings();
   const adjustedFontSize = Math.max(14, fontSize + (globalFontSize - 16));
+  const buttonId = React.useId().replace(/:/g, "-");
+  const accessibleId = `button-${buttonId}-${label}`;
   const scale = React.useRef(new Animated.Value(1)).current;
-  const lastTapTime = React.useRef<number | null>(null);
-  const singleTapTimer = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
   const action = onAction ?? onPress;
-  const useDoubleTap = Boolean(audioSource || onAction);
-
-  const onPressIn = () =>
+  const [pressed, setPressed] = useState(false);
+  const { activeElementId } = useAccessibility();
+  const highlighted = pressed || activeElementId === accessibleId;
+  const onPressIn = () => {
+    setPressed(true);
     Animated.spring(scale, {
       toValue: 0.975,
       useNativeDriver: true,
       speed: 50,
     }).start();
-  const onPressOut = () =>
+  };
+  const onPressOut = () => {
+    setPressed(false);
     Animated.spring(scale, {
       toValue: 1,
       useNativeDriver: true,
       speed: 50,
     }).start();
-
-  React.useEffect(() => {
-    return () => {
-      if (singleTapTimer.current) {
-        clearTimeout(singleTapTimer.current);
-      }
-    };
-  }, []);
+  };
 
   const handlePress = () => {
-    if (!action) return;
-    const now = Date.now();
-    const elapsed = lastTapTime.current ? now - lastTapTime.current : Infinity;
-
-    if (!useDoubleTap) {
-      action();
-      return;
-    }
-
-    if (elapsed < doubleTapDelay) {
-      if (singleTapTimer.current) {
-        clearTimeout(singleTapTimer.current);
-        singleTapTimer.current = null;
-      }
-      lastTapTime.current = null;
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      action();
-      return;
-    }
-
-    lastTapTime.current = now;
-    singleTapTimer.current = setTimeout(() => {
-      lastTapTime.current = null;
-      singleTapTimer.current = null;
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      void playButtonSound(audioSource);
-    }, doubleTapDelay);
+    action?.();
   };
 
   return (
     <Animated.View style={{ transform: [{ scale }], width: "100%", height }}>
-      <TouchableOpacity
-        onPress={handlePress}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-        activeOpacity={1}
-        accessible={true}
-        accessibilityRole="button"
-        style={[ss.button, danger && { backgroundColor: T.danger }, { height }]}
+      <AccessibleElement
+        id={accessibleId}
+        label={label}
+        audioSource={audioSource}
+        onActivate={action}
       >
-        <Text style={[ss.buttonLabel, { fontSize: adjustedFontSize }]}>
-          {label}
-        </Text>
-        {sub && (
-          <Text
-            style={[
-              ss.buttonSub,
-              { fontSize: Math.max(14, adjustedFontSize - 8) },
-            ]}
-          >
-            {sub}
+        <TouchableOpacity
+          onPress={handlePress}
+          onPressIn={onPressIn}
+          onPressOut={onPressOut}
+          activeOpacity={1}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          style={[
+            ss.button,
+            danger && { backgroundColor: T.danger },
+            { height },
+            highlighted && { borderColor: "#45FFF7", borderWidth: 2 },
+          ]}
+        >
+          <Text style={[ss.buttonLabel, { fontSize: adjustedFontSize }]}>
+            {label}
           </Text>
-        )}
-      </TouchableOpacity>
+          {sub && (
+            <Text
+              style={[
+                ss.buttonSub,
+                { fontSize: Math.max(14, adjustedFontSize - 8) },
+              ]}
+            >
+              {sub}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </AccessibleElement>
     </Animated.View>
   );
 }
@@ -454,35 +410,37 @@ const FEATURES = [
   {
     id: "obstacle",
     label: "Саад мэдрэгч",
-    audio: require("@/assets/haptics/obidentifybtn.mp3"),
   },
   {
     id: "recognize",
     label: "Таних систем",
-    audio: require("@/assets/haptics/grlidentifybtn.mp3"),
   },
   {
     id: "ocr",
     label: "Текст унших",
-    audio: require("@/assets/haptics/textreaderbtn.mp3"),
   },
   {
     id: "location",
     label: "Байршил",
-    audio: require("@/assets/haptics/locationdefinebtn.mp3"),
   },
   {
     id: "room-search",
     label: "Өрөө хайх",
-    audio: require("@/assets/haptics/SearchRoomBtn.mp3"),
+  },
+  {
+    id: "settings",
+    label: "Тохиргоо",
   },
 ] as const;
+
+type FeatureId = (typeof FEATURES)[number]["id"];
+
 export function HomeScreen({
+  audioSources,
   onNav,
 }: {
-  onNav: (
-    id: "obstacle" | "recognize" | "ocr" | "location" | "room-search",
-  ) => void;
+  audioSources?: Partial<Record<FeatureId, AVPlaybackSource>>;
+  onNav: (id: FeatureId) => void;
 }) {
   return (
     <Screen style={{ gap: 18 }}>
@@ -497,7 +455,7 @@ export function HomeScreen({
               label={FEATURES[0].label}
               height={150}
               onPress={() => onNav(FEATURES[0].id)}
-              audioSource={FEATURES[0].audio}
+              audioSource={audioSources?.[FEATURES[0].id]}
             />
           </View>
           <View style={{ flex: 1 }}>
@@ -505,7 +463,7 @@ export function HomeScreen({
               label={FEATURES[1].label}
               height={150}
               onPress={() => onNav(FEATURES[1].id)}
-              audioSource={FEATURES[1].audio}
+              audioSource={audioSources?.[FEATURES[1].id]}
             />
           </View>
         </View>
@@ -515,7 +473,7 @@ export function HomeScreen({
               label={FEATURES[2].label}
               height={150}
               onPress={() => onNav(FEATURES[2].id)}
-              audioSource={FEATURES[2].audio}
+              audioSource={audioSources?.[FEATURES[2].id]}
             />
           </View>
           <View style={{ flex: 1 }}>
@@ -523,7 +481,7 @@ export function HomeScreen({
               label={FEATURES[3].label}
               height={150}
               onPress={() => onNav(FEATURES[3].id)}
-              audioSource={FEATURES[3].audio}
+              audioSource={audioSources?.[FEATURES[3].id]}
             />
           </View>
         </View>
@@ -531,7 +489,13 @@ export function HomeScreen({
           label={FEATURES[4].label}
           height={112}
           onPress={() => onNav(FEATURES[4].id)}
-          audioSource={FEATURES[4].audio}
+          audioSource={audioSources?.[FEATURES[4].id]}
+        />
+        <Button
+          label={FEATURES[4].label}
+          height={112}
+          onPress={() => onNav(FEATURES[5].id)}
+          audioSource={audioSources?.[FEATURES[5].id]}
         />
       </View>
     </Screen>
@@ -920,7 +884,7 @@ export const ss = StyleSheet.create({
     flex: 1,
     backgroundColor: T.btnBg,
     borderRadius: T.rCard,
-    padding: 18,
+    padding: 5,
   },
   ocrResultText: {
     fontSize: 24,

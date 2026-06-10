@@ -20,8 +20,8 @@ import { useSettings } from "@/providers/SettingsProvider";
 const BUTTON_ARM_TIME_MS = 3000;
 
 const SOUNDS = {
-  register: require("../assets/haptics/registerbtn.mp3"),
-  back: require("../assets/haptics/backbtn.mp3"),
+  register: require("@/assets/haptics/registerbtn.mp3"),
+  back: require("@/assets/haptics/backbtn.mp3"),
 };
 
 export default function RegisterPage() {
@@ -222,25 +222,16 @@ export default function RegisterPage() {
 
             <Button
               label={loading ? "Түр хүлээнэ үү" : "Бүртгүүлэх"}
+              audioSource={SOUNDS.register}
               height={88}
-              onPress={
-                loading
-                  ? undefined
-                  : () =>
-                      handleTwoPressButton(
-                        "register",
-                        SOUNDS.register,
-                        handleRegister,
-                      )
-              }
+              onPress={loading ? undefined : handleRegister}
             />
 
             <Button
               label="Буцах"
               height={88}
-              onPress={() =>
-                handleTwoPressButton("back", SOUNDS.back, () => router.back())
-              }
+              audioSource={SOUNDS.back}
+              onPress={() => router.back()}
             />
           </View>
         </ScrollView>
