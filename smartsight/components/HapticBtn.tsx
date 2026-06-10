@@ -33,7 +33,8 @@ async function playSoundFile(source: AVPlaybackSource) {
   try {
     // Unload whatever was playing before — no overlapping voices
     if (activeSound) {
-      await activeSound.unloadAsync();
+      await activeSound.stopAsync().catch(() => {});
+      await activeSound.unloadAsync().catch(() => {});
       activeSound = null;
     }
 
