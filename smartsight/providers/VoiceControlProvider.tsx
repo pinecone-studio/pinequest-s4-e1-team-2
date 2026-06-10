@@ -33,15 +33,23 @@ export function VoiceControlProvider({ children }: { children: React.ReactNode }
 
   const startListening = useCallback(async () => {
     if (listeningRef.current) return;
+    listeningRef.current = true; // await-аас өмнө тавих — давхар дуудлагаас хамгаална
     const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-    if (!granted) return;
-    listeningRef.current = true;
+    if (!granted) {
+      listeningRef.current = false;
+      return;
+    }
     setListening(true);
-    ExpoSpeechRecognitionModule.start({
-      lang: 'mn-MN',
-      interimResults: false,
-      maxAlternatives: 1,
-    });
+    try {
+      ExpoSpeechRecognitionModule.start({
+        lang: 'mn-MN',
+        interimResults: false,
+        maxAlternatives: 1,
+      });
+    } catch {
+      listeningRef.current = false;
+      setListening(false);
+    }
   }, []);
 
   // Таних үр дүн
@@ -49,6 +57,7 @@ export function VoiceControlProvider({ children }: { children: React.ReactNode }
     const text = event.results[0]?.transcript ?? '';
     const route = matchCommand(text);
     if (!route) return;
+    ExpoSpeechRecognitionModule.stop(); // командыг танисны дараа mic-г хаана
     if (route === 'back') {
       router.back();
     } else {
