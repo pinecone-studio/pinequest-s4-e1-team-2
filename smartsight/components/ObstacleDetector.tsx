@@ -145,7 +145,7 @@ const SPEAK_COOLDOWN_MS = 3000;
 let lastSpeakTime = 0;
 let lastSpeakText = '';
 
-function speakDangers(dangers: BBox[], approachingIds: Set<number>) {
+function speakDangers(dangers: BBox[], approachingIds: Set<number>, trafficColor?: TrafficColor) {
   const now = Date.now();
 
   // Объектуудыг бүлэглэх: classId+direction → count
@@ -180,8 +180,12 @@ function speakDangers(dangers: BBox[], approachingIds: Set<number>) {
   // [7] Гэрлэн дохио/зогсоох тэмдэг тусгай мессеж
   const trafficDanger = dangers.find(b => isTrafficSign(b.classId));
   if (trafficDanger) {
-    const tName = getCocoNameMn(trafficDanger.classId);
-    parts.unshift(`Анхаар! ${tName}`);
+    if (trafficDanger.classId === 9 && trafficColor) {
+      parts.unshift(`Анхаар! ${trafficColor} гэрэл`);
+    } else {
+      const tName = getCocoNameMn(trafficDanger.classId);
+      parts.unshift(`Анхаар! ${tName}`);
+    }
   }
 
   let text = parts.join(', ') + `, ${proximity.text}`;
@@ -190,6 +194,50 @@ function speakDangers(dangers: BBox[], approachingIds: Set<number>) {
   lastSpeakTime = now;
   lastSpeakText = text;
   speech.speak(text, 'urgent');
+}
+
+// ── Гэрлэн дохионы өнгө таних ───────────────────────────────────────────────
+
+type TrafficColor = 'улаан' | 'шар' | 'ногоон' | null;
+
+function detectTrafficLightColor(tensor: Float32Array, box: BBox): TrafficColor {
+  const size = MODEL_INPUT;
+  // bbox-ийн пиксел координат
+  const x1 = Math.max(0, Math.floor((box.cx - box.w / 2) * size));
+  const x2 = Math.min(size - 1, Math.floor((box.cx + box.w / 2) * size));
+  const y1 = Math.max(0, Math.floor((box.cy - box.h / 2) * size));
+  const y2 = Math.min(size - 1, Math.floor((box.cy + box.h / 2) * size));
+
+  // Гэрлэн дохионы дээд 1/3 = улаан, дунд 1/3 = шар, доод 1/3 = ногоон
+  const h = y2 - y1;
+  const regions = [
+    { name: 'улаан' as TrafficColor, startY: y1, endY: y1 + Math.floor(h / 3) },
+    { name: 'шар' as TrafficColor, startY: y1 + Math.floor(h / 3), endY: y1 + Math.floor(2 * h / 3) },
+    { name: 'ногоон' as TrafficColor, startY: y1 + Math.floor(2 * h / 3), endY: y2 },
+  ];
+
+  let brightest: TrafficColor = null;
+  let maxBrightness = 0;
+
+  for (const region of regions) {
+    let sum = 0;
+    let count = 0;
+    for (let y = region.startY; y < region.endY; y += 2) {
+      for (let x = x1; x < x2; x += 2) {
+        const idx = (y * size + x) * 3;
+        sum += (tensor[idx] + tensor[idx + 1] + tensor[idx + 2]) / 3;
+        count++;
+      }
+    }
+    const avg = count > 0 ? sum / count : 0;
+    if (avg > maxBrightness) {
+      maxBrightness = avg;
+      brightest = region.name;
+    }
+  }
+
+  // Хамгийн гэрэлтэй бүс нь асаж буй гэрэл
+  return maxBrightness > 0.3 ? brightest : null;
 }
 
 // ── Төрлүүд ───────────────────────────────────────────────────────────────────
@@ -305,6 +353,7 @@ export default function ObstacleDetector() {
   const [branchCount, setBranchCount]   = useState(0);
   const [torchOn, setTorchOn]           = useState(false);       // [1] Шөнийн горим
   const [approachingText, setApproachingText] = useState('');    // [2] Ойртож буй
+  const [trafficLightColor, setTrafficLightColor] = useState<TrafficColor>(null);
 
   const { detectorSensitivity } = useSettings();
   const minBboxArea = SENSITIVITY_MAP[detectorSensitivity];
@@ -398,8 +447,11 @@ export default function ObstacleDetector() {
   const startParkingBeep = useCallback((level: ProximityLevel) => {
     if (beepIntervalRef.current) clearInterval(beepIntervalRef.current);
     const intervalMs = level === 'near' ? 300 : level === 'medium' ? 700 : 1200;
-    beepIntervalRef.current = setInterval(() => {
-      soundRef.current?.replayAsync();
+    beepIntervalRef.current = setInterval(async () => {
+      try {
+        const status = await soundRef.current?.getStatusAsync();
+        if (status?.isLoaded) await soundRef.current?.replayAsync();
+      } catch { /* sound not ready */ }
     }, intervalMs);
   }, []);
 
@@ -415,7 +467,7 @@ export default function ObstacleDetector() {
     return () => stopParkingBeep();
   }, [stopParkingBeep]);
 
-  const triggerAlert = useCallback(async (dangers: BBox[]) => {
+  const triggerAlert = useCallback(async (dangers: BBox[], tensor?: Float32Array) => {
     const now = Date.now();
 
     // [5] Тээврийн хэрэгсэл байвал cooldown богиносно
@@ -447,20 +499,34 @@ export default function ObstacleDetector() {
     // Haptic
     vibrateByProximity(proximity.level);
 
+    // Гэрлэн дохионы өнгө таних
+    let trafficColor: TrafficColor = null;
+    const trafficLight = dangers.find(b => b.classId === 9);
+    if (trafficLight && tensor) {
+      trafficColor = detectTrafficLightColor(tensor, trafficLight);
+    }
+
+    setTrafficLightColor(trafficColor);
+
     // [3] Олон объект нэгтгэж хэлэх
-    speakDangers(dangers, approachingIds);
+    speakDangers(dangers, approachingIds, trafficColor);
 
     // [6] Паркинг сенсор beep
     startParkingBeep(proximity.level);
 
     // Beep нэг удаа
-    await soundRef.current?.replayAsync();
+    try {
+      const status = await soundRef.current?.getStatusAsync();
+      if (status?.isLoaded) await soundRef.current?.replayAsync();
+    } catch { /* sound not ready */ }
   }, [startParkingBeep]);
 
   // Мөчир таних (Roboflow API)
   const detectBranches = useCallback(async () => {
     if (branchBusyRef.current || cameraBusyRef.current || !activeRef.current || !cameraReadyRef.current) return;
     if (!cameraRef.current || !ROBOFLOW_API_KEY) return;
+    // Хүн илэрсэн фрэймд мөчир таних алгасна (false positive шүүлт)
+    if (dangerBoxes.some(b => b.classId === 0)) return;
 
     branchBusyRef.current = true;
     cameraBusyRef.current = true;
@@ -478,7 +544,12 @@ export default function ObstacleDetector() {
         },
       );
       const data = await response.json();
-      const branches = data.predictions ?? [];
+      const allBranches = data.predictions ?? [];
+      // Зөвхөн confidence > 0.6 байвал мөчир гэж тооцно (false positive шүүлт)
+      const branches = allBranches.filter((p: any) => p.confidence >= 0.6);
+      if (allBranches.length > 0) {
+        console.log(`[ObstacleDetector] мөчир confidence: ${allBranches.map((p: any) => p.confidence?.toFixed(2)).join(', ')}`);
+      }
       setBranchCount(branches.length);
 
       if (branches.length > 0) {
@@ -522,14 +593,15 @@ export default function ObstacleDetector() {
       if (dangers.length > 0) {
         const closest = dangers.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
         console.log(`[ObstacleDetector] ${dangers.length} саад, ${getCocoNameMn(closest.classId)}, score: ${closest.score.toFixed(2)}`);
-        await triggerAlert(dangers);
+        await triggerAlert(dangers, tensor);
       } else {
         // Саад алга болсон — beep зогсоох, prev areas цэвэрлэх
         stopParkingBeep();
         prevAreasRef.current.clear();
       }
-    } catch (err) {
-      console.error('[ObstacleDetector] detect алдаа:', err);
+    } catch (err: any) {
+      if (err?.message?.includes('unmounted')) { /* camera left screen, ignore */ }
+      else console.error('[ObstacleDetector] detect алдаа:', err);
     } finally {
       busyRef.current = false;
       cameraBusyRef.current = false;
@@ -589,6 +661,21 @@ export default function ObstacleDetector() {
       {approachingText !== '' && (
         <View style={s.approachBanner}>
           <Text style={s.approachText}>{approachingText}</Text>
+        </View>
+      )}
+
+      {/* Гэрлэн дохионы өнгө */}
+      {trafficLightColor && (
+        <View style={[s.trafficBanner,
+          trafficLightColor === 'улаан' && s.trafficRed,
+          trafficLightColor === 'шар' && s.trafficYellow,
+          trafficLightColor === 'ногоон' && s.trafficGreen,
+        ]}>
+          <Text style={s.trafficText}>
+            {trafficLightColor === 'улаан' ? 'УЛААН — ЗОГС' :
+             trafficLightColor === 'ногоон' ? 'НОГООН — ЯВ' :
+             'ШАР — ХҮЛЭЭ'}
+          </Text>
         </View>
       )}
 
@@ -695,6 +782,16 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8,
   },
   loadingText: { color: '#fff', fontSize: 13 },
+
+  trafficBanner: {
+    position: 'absolute', top: 140, alignSelf: 'center',
+    paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12,
+    alignItems: 'center', borderWidth: 3, borderColor: '#fff',
+  },
+  trafficRed: { backgroundColor: 'rgba(220,0,0,0.95)' },
+  trafficYellow: { backgroundColor: 'rgba(220,180,0,0.95)' },
+  trafficGreen: { backgroundColor: 'rgba(0,160,0,0.95)' },
+  trafficText: { color: '#fff', fontSize: 24, fontWeight: '800', letterSpacing: 2 },
 
   backBtn: {
     position: 'absolute', top: 50, left: 20,
