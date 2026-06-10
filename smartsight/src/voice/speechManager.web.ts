@@ -1,9 +1,6 @@
-// Web платформ — proxy байвал Google Mongolian TTS, байхгүй бол Web Speech API.
+import { VoiceSettings, SpeakPriority, VOICE_CONFIG, CHIMEGE_VOICES } from './config';
 
-import { VoiceSettings, SpeakPriority, VOICE_CONFIG, AZURE_VOICES } from './config';
-
-const isProxyReady = () =>
-  Boolean(VOICE_CONFIG.ttsProxyUrl && !VOICE_CONFIG.ttsProxyUrl.includes('YOUR-BACKEND'));
+const CHIMEGE_URL = 'https://api.chimege.com/v1.2/synthesize';
 
 class SpeechManager {
   private settings: VoiceSettings | null = null;
@@ -21,20 +18,44 @@ class SpeechManager {
 
     if (priority === 'urgent') this.stopAll();
 
-    if (isProxyReady()) {
-      this.playViaProxy(text, s);
+    if (VOICE_CONFIG.chimegeToken) {
+      this.playViaChimege(text, s);
     } else {
       this.playViaBrowser(text, s);
     }
   }
 
-  private playViaProxy(text: string, s: VoiceSettings) {
-    const voice = AZURE_VOICES[s.gender];
-    const url = `${VOICE_CONFIG.ttsProxyUrl}?${new URLSearchParams({ text, voice, rate: String(s.rate) })}`;
-    const audio = new Audio(url);
-    audio.volume = s.volume;
-    this.currentAudio = audio;
-    audio.play().catch((e) => console.warn('[Voice] proxy audio error:', e));
+  private async playViaChimege(text: string, s: VoiceSettings) {
+    try {
+      if (this.currentAudio) {
+        this.currentAudio.pause();
+        this.currentAudio = null;
+      }
+      const sanitized = text.toLowerCase().replace(/[^Ѐ-ӿ\s?!.,\-'"]/g, ' ').trim().slice(0, 300);
+      if (!sanitized) return;
+
+      const response = await fetch(CHIMEGE_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain',
+          'Token': VOICE_CONFIG.chimegeToken,
+          'voice-id': CHIMEGE_VOICES[s.gender],
+          'speed': String(s.rate),
+        },
+        body: sanitized,
+      });
+      if (!response.ok) throw new Error(`Chimege ${response.status}`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.volume = s.volume;
+      this.currentAudio = audio;
+      audio.play().catch((e) => console.warn('[Voice] Chimege audio error:', e));
+      audio.onended = () => URL.revokeObjectURL(url);
+    } catch (e) {
+      console.warn('[Voice] Chimege failed:', e);
+      this.playViaBrowser(text, s);
+    }
   }
 
   private playViaBrowser(text: string, s: VoiceSettings) {
@@ -66,7 +87,6 @@ export const speech = new SpeechManager();
 
 export async function initAudio() {
   if (typeof window === 'undefined') return;
-  // Монгол дуу байвал кэш хийнэ (Web Speech API fallback-д хэрэгтэй)
   const tryPick = () => {
     const voices = window.speechSynthesis?.getVoices() ?? [];
     (speech as any).mnVoice =
