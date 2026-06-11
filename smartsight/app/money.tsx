@@ -1,25 +1,34 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, TouchableOpacity, View, Text } from "react-native";
 import { useRouter } from "expo-router";
 import { useMoneyDetection } from "@/components/Recognition/useMoneyDetection";
-
-function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
-  return (
-    <View style={styles.center}>
-      <TouchableOpacity style={styles.button} onPress={onRequest} accessible accessibilityLabel="Камерын зөвшөөрөл авах">
-        <Text style={styles.buttonText}>КАМЕР ЗӨВШӨӨРӨХ</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
 
 export default function MoneyPage() {
   const [permission, requestPermission] = useCameraPermissions();
   const { cameraRef, result, status } = useMoneyDetection();
   const router = useRouter();
 
-  if (!permission?.granted) {
-    return <PermissionPrompt onRequest={requestPermission} />;
+  // Зөвшөөрлийг автоматаар асууж, шууд камер нээнэ
+  useEffect(() => {
+    if (permission && !permission.granted && permission.canAskAgain) {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
+
+  if (!permission) {
+    return <View style={styles.center} />;
+  }
+
+  if (!permission.granted) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.permissionText}>Камерын зөвшөөрөл шаардлагатай</Text>
+        <TouchableOpacity style={styles.button} onPress={requestPermission} accessible accessibilityLabel="Камерын зөвшөөрөл авах">
+          <Text style={styles.buttonText}>КАМЕР ЗӨВШӨӨРӨХ</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   const isUnknown = status === "unknown";
@@ -80,6 +89,7 @@ const styles = StyleSheet.create({
     margin: 16, borderRadius: 16, minHeight: 80, justifyContent: "center",
   },
   buttonText: { color: "#fff", fontSize: 24, fontWeight: "bold" },
+  permissionText: { color: "#fff", fontSize: 18, textAlign: "center", marginHorizontal: 24, marginBottom: 8 },
   backBtn: {
     position: "absolute", top: 50, left: 20,
     backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
