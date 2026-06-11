@@ -1,9 +1,9 @@
-import { loadTensorflowModel, type TensorflowModel } from "react-native-fast-tflite";
+import { loadTensorflowModel, useTensorflowModel, type TensorflowModel } from "react-native-fast-tflite";
 import * as ImageManipulator from "expo-image-manipulator";
 import { Skia, ColorType, AlphaType } from "@shopify/react-native-skia";
 
 const INPUT_SIZE = 224;
-const CONFIDENCE_THRESHOLD = 0.7;
+const CONFIDENCE_THRESHOLD = 0.8;
 
 // labels.txt: 0→20000, 1→10000, 2→5000, 3→1000, 4→500, 5→100, 6→50, 7→null(танихгүй)
 const LABELS: (number | null)[] = [20000, 10000, 5000, 1000, 500, 100, 50, null];
@@ -16,7 +16,7 @@ async function ensureModel(): Promise<boolean> {
   if (loading) return false;
   loading = true;
   try {
-    model = await loadTensorflowModel(require("@/assets/models/model.tflite"));
+    model = await useTensorflowModel(require("@/assets/models/model.tflite"));
     return true;
   } catch {
     return false;
@@ -70,7 +70,8 @@ export async function detectMoneyViaTM(uri: string): Promise<number | null> {
         maxIdx = i;
       }
     }
-    if (maxProb < CONFIDENCE_THRESHOLD || maxIdx === -1) return null;
+    // Зөвхөн 0.8-аас их магадлалтай үед л дүнг буцаана, эс бол танихгүй (null)
+    if (maxProb <= CONFIDENCE_THRESHOLD || maxIdx === -1) return null;
     return LABELS[maxIdx] ?? null;
   } catch {
     return null;
