@@ -34,11 +34,15 @@ export default function RootLayout() {
               <Stack.Screen name="location" />
               <Stack.Screen name="room-search" />
               <Stack.Screen name="settings" />
+              <Stack.Screen name="bus-route" />
+              <Stack.Screen name="bus-journey" />
+              <Stack.Screen name="bus-scan" />
+              <Stack.Screen name="nearby-stops" />
               <Stack.Screen name="modal" options={{ presentation: "modal" }} />
             </Stack>
           </SettingsProvider>
         </PermissionProvider>
       </AccessibilityProvider>
     </VoiceProvider>
-  );;''
+  );
 }
