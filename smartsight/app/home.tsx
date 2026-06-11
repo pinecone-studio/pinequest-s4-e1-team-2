@@ -6,6 +6,7 @@ import { Logo } from "@/components/ui-generated/_comps";
 import { Button, ss } from "@/components/ui-generated/_comps";
 const ROUTES = {
   obstacle: "/obstacle",
+  money: "/money",
   recognize: "/recognize",
   ocr: "/ocr",
   location: "/location",
@@ -18,6 +19,7 @@ const ROUTES = {
 
 type HomeRoute =
   | "obstacle"
+  | "money"
   | "recognize"
   | "ocr"
   | "location"
@@ -48,38 +50,15 @@ export default function HomePage() {
 }
 // 4 · HOME
 const FEATURES = [
-  {
-    id: "obstacle",
-    label: "Саад мэдрэгч",
-  },
-  {
-    id: "recognize",
-    label: "Таних систем",
-  },
-  {
-    id: "ocr",
-    label: "Текст унших",
-  },
-  {
-    id: "location",
-    label: "Байршил",
-  },
-  {
-    id: "room-search",
-    label: "Өрөө хайх",
-  },
-  {
-    id: "settings",
-    label: "Тохиргоо",
-  },
-  {
-    id: "bus-route",
-    label: "Автобус чиглэл",
-  },
-  {
-    id: "nearby-stops",
-    label: "Ойр буудал",
-  },
+  { id: "obstacle",     label: "Саад мэдрэгч" },
+  { id: "money",        label: "Мөнгө таних" },
+  { id: "recognize",    label: "Тоот таних" },
+  { id: "ocr",          label: "Текст унших" },
+  { id: "location",     label: "Байршил" },
+  { id: "room-search",  label: "Өрөө хайх" },
+  { id: "settings",     label: "Тохиргоо" },
+  { id: "bus-route",    label: "Автобус чиглэл" },
+  { id: "nearby-stops", label: "Ойр буудал" },
 ] as const;
 
 type FeatureId = (typeof FEATURES)[number]["id"];
@@ -98,77 +77,44 @@ export function HomeScreen({
       <View style={{ flex: 1, gap: 14 }}>
         <View style={ss.featureRow}>
           <View style={{ flex: 1 }}>
-            <Button
-              label={FEATURES[0].label}
-              height={150}
-              onPress={() => onNav(FEATURES[0].id)}
-              audioSource={audioSources?.[FEATURES[0].id]}
-            />
+            <Button label={FEATURES[0].label} height={150} onPress={() => onNav(FEATURES[0].id)} audioSource={audioSources?.[FEATURES[0].id]} />
           </View>
           <View style={{ flex: 1 }}>
-            <Button
-              label={FEATURES[1].label}
-              height={150}
-              onPress={() => onNav(FEATURES[1].id)}
-              audioSource={audioSources?.[FEATURES[1].id]}
-            />
+            <Button label={FEATURES[1].label} height={150} onPress={() => onNav(FEATURES[1].id)} audioSource={audioSources?.[FEATURES[1].id]} />
           </View>
         </View>
         <View style={ss.featureRow}>
           <View style={{ flex: 1 }}>
-            <Button
-              label={FEATURES[2].label}
-              height={150}
-              onPress={() => onNav(FEATURES[2].id)}
-              audioSource={audioSources?.[FEATURES[2].id]}
-            />
+            <Button label={FEATURES[2].label} height={150} onPress={() => onNav(FEATURES[2].id)} audioSource={audioSources?.[FEATURES[2].id]} />
           </View>
           <View style={{ flex: 1 }}>
-            <Button
-              label={FEATURES[3].label}
-              height={150}
-              onPress={() => onNav(FEATURES[3].id)}
-              audioSource={audioSources?.[FEATURES[3].id]}
-            />
+            <Button label={FEATURES[3].label} height={150} onPress={() => onNav(FEATURES[3].id)} audioSource={audioSources?.[FEATURES[3].id]} />
           </View>
         </View>
         <View style={ss.featureRow}>
           <View style={{ flex: 1 }}>
-            <Button
-              label={FEATURES[4].label}
-              height={112}
-              onPress={() => onNav(FEATURES[4].id)}
-              audioSource={audioSources?.[FEATURES[4].id]}
-            />
+            <Button label={FEATURES[4].label} height={112} onPress={() => onNav(FEATURES[4].id)} audioSource={audioSources?.[FEATURES[4].id]} />
           </View>
           <View style={{ flex: 1 }}>
-            <Button
-              label={FEATURES[5].label}
-              height={112}
-              onPress={() => onNav(FEATURES[5].id)}
-              audioSource={audioSources?.[FEATURES[5].id]}
-            />
+            <Button label={FEATURES[5].label} height={112} onPress={() => onNav(FEATURES[5].id)} audioSource={audioSources?.[FEATURES[5].id]} />
           </View>
         </View>
         <View style={ss.featureRow}>
           <View style={{ flex: 1 }}>
-            <Button
-              label={FEATURES[6].label}
-              height={100}
-              onPress={() => onNav(FEATURES[6].id)}
-              audioSource={audioSources?.[FEATURES[6].id]}
-            />
+            <Button label={FEATURES[6].label} height={100} onPress={() => onNav(FEATURES[6].id)} audioSource={audioSources?.[FEATURES[6].id]} />
           </View>
           <View style={{ flex: 1 }}>
-            <Button
-              label={FEATURES[7].label}
-              height={100}
-              onPress={() => onNav(FEATURES[7].id)}
-              audioSource={audioSources?.[FEATURES[7].id]}
-            />
+            <Button label={FEATURES[7].label} height={100} onPress={() => onNav(FEATURES[7].id)} audioSource={audioSources?.[FEATURES[7].id]} />
           </View>
         </View>
-        <Button label={"Заавар"} audioSource={instruction}></Button>
+        <View style={ss.featureRow}>
+          <View style={{ flex: 1 }}>
+            <Button label={FEATURES[8].label} height={100} onPress={() => onNav(FEATURES[8].id)} audioSource={audioSources?.[FEATURES[8].id]} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button label={"Заавар"} height={100} audioSource={instruction} />
+          </View>
+        </View>
       </View>
     </Screen>
   );

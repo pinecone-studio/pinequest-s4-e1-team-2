@@ -1,42 +1,21 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { ActivityIndicator, StyleSheet, TouchableOpacity } from "react-native";
-import { Text, View } from "@/components/Themed";
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View, Text } from "react-native";
 import { useRouter } from "expo-router";
-import { useRecognition, type ResultType } from "./useRecognition";
+import { useMoneyDetection } from "@/components/Recognition/useMoneyDetection";
 
 function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
   return (
     <View style={styles.center}>
-      <TouchableOpacity
-        style={styles.button}
-        onPress={onRequest}
-        accessible
-        accessibilityLabel="Камерын зөвшөөрөл авах"
-      >
+      <TouchableOpacity style={styles.button} onPress={onRequest} accessible accessibilityLabel="Камерын зөвшөөрөл авах">
         <Text style={styles.buttonText}>КАМЕР ЗӨВШӨӨРӨХ</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-function getCardStyle(type: ResultType) {
-  switch (type) {
-    case "door":  return styles.resultCardDoor;
-    default:      return styles.resultCard;
-  }
-}
-
-function getTypeLabel(type: ResultType): string {
-  switch (type) {
-    case "door":  return "Өрөөний дугаар";
-    case "text":  return "Текст";
-    default:      return "";
-  }
-}
-
-export default function RecognitionCamera() {
+export default function MoneyPage() {
   const [permission, requestPermission] = useCameraPermissions();
-  const { cameraRef, result, resultType, isScanning } = useRecognition();
+  const { cameraRef, result, isScanning } = useMoneyDetection();
   const router = useRouter();
 
   if (!permission?.granted) {
@@ -47,7 +26,6 @@ export default function RecognitionCamera() {
     <View style={styles.container}>
       <CameraView ref={cameraRef} style={styles.camera} autofocus="on" />
 
-      {/* [2] Scanning indicator */}
       {isScanning && !result && (
         <View style={styles.scanningBadge}>
           <ActivityIndicator size="small" color="#fff" />
@@ -55,12 +33,9 @@ export default function RecognitionCamera() {
         </View>
       )}
 
-      {/* [7] Төрөл ялгасан result card */}
       {result ? (
-        <View style={[styles.resultCard, getCardStyle(resultType)]}>
-          {resultType !== "none" && (
-            <Text style={styles.typeLabel}>{getTypeLabel(resultType)}</Text>
-          )}
+        <View style={styles.resultCard}>
+          <Text style={styles.typeLabel}>МӨНГӨ</Text>
           <Text style={styles.resultText}>{result}</Text>
         </View>
       ) : null}
@@ -76,36 +51,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
   camera: { flex: 1 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-
   resultCard: {
     position: "absolute", bottom: 80, left: 16, right: 16,
-    backgroundColor: "rgba(0,0,0,0.85)",
-    padding: 20,
-    borderRadius: 12,
-    alignItems: "center",
+    backgroundColor: "rgba(34,139,34,0.92)",
+    padding: 20, borderRadius: 12, alignItems: "center",
+    borderWidth: 2, borderColor: "rgba(255,255,255,0.3)",
   },
-  // Дугаар — цэнхэр
-  resultCardDoor: {
-    backgroundColor: "rgba(30,100,200,0.92)",
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.3)",
-  },
-  // [7] Текст — хар
-  resultCardText: {
-    backgroundColor: "rgba(0,0,0,0.85)",
-  },
-
   typeLabel: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 1,
-    marginBottom: 6,
-    textTransform: "uppercase",
+    color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: "700",
+    letterSpacing: 1, marginBottom: 6, textTransform: "uppercase",
   },
   resultText: { color: "#fff", fontSize: 28, textAlign: "center", fontWeight: "bold" },
-
-  // [2] Scanning indicator
   scanningBadge: {
     position: "absolute", top: 100, alignSelf: "center",
     flexDirection: "row", alignItems: "center", gap: 8,
@@ -113,15 +69,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
   },
   scanningText: { color: "#fff", fontSize: 14 },
-
   button: {
-    backgroundColor: "#1a1a1a",
-    padding: 32,
-    alignItems: "center",
-    margin: 16,
-    borderRadius: 16,
-    minHeight: 80,
-    justifyContent: "center",
+    backgroundColor: "#1a1a1a", padding: 32, alignItems: "center",
+    margin: 16, borderRadius: 16, minHeight: 80, justifyContent: "center",
   },
   buttonText: { color: "#fff", fontSize: 24, fontWeight: "bold" },
   backBtn: {
