@@ -20,8 +20,8 @@ import { useSettings } from "@/providers/SettingsProvider";
 const BUTTON_ARM_TIME_MS = 3000;
 
 const SOUNDS = {
-  login: require("../assets/haptics/loginbtn.mp3"),
-  back: require("../assets/haptics/backbtn.mp3"),
+  login: require("@/assets/haptics/loginbtn.mp3"),
+  back: require("@/assets/haptics/backbtn.mp3"),
 };
 
 export default function LoginPage() {
@@ -34,60 +34,6 @@ export default function LoginPage() {
   const activeSoundRef = useRef<Audio.Sound | null>(null);
   const armTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { speechSpeed } = useSettings();
-
-  async function playSoundFile(source: AVPlaybackSource) {
-    try {
-      if (activeSoundRef.current) {
-        await activeSoundRef.current.stopAsync().catch(() => {});
-        await activeSoundRef.current.unloadAsync().catch(() => {});
-        activeSoundRef.current = null;
-      }
-
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-
-      const { sound } = await Audio.Sound.createAsync(source, {
-        shouldPlay: true,
-      });
-      activeSoundRef.current = sound;
-      await sound.setRateAsync(speechSpeed ?? 1, true);
-
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync();
-          activeSoundRef.current = null;
-        }
-      });
-    } catch (err) {
-      console.warn("[A11y] Button audio failed:", err);
-    }
-  }
-
-  function handleTwoPressButton(
-    buttonId: string,
-    audioSource: AVPlaybackSource,
-    action: () => void,
-  ) {
-    if (armedButton === buttonId) {
-      if (armTimerRef.current) {
-        clearTimeout(armTimerRef.current);
-        armTimerRef.current = null;
-      }
-      setArmedButton(null);
-      action();
-      return;
-    }
-
-    setArmedButton(buttonId);
-    void playSoundFile(audioSource);
-
-    if (armTimerRef.current) {
-      clearTimeout(armTimerRef.current);
-    }
-    armTimerRef.current = setTimeout(() => {
-      setArmedButton(null);
-      armTimerRef.current = null;
-    }, BUTTON_ARM_TIME_MS);
-  }
 
   useEffect(() => {
     return () => {
@@ -105,10 +51,7 @@ export default function LoginPage() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail || !password) {
-      Alert.alert(
-        "Мэдээлэл дутуу",
-        "Имэйл болон нууц үгээ оруулна уу.",
-      );
+      Alert.alert("Мэдээлэл дутуу", "Имэйл болон нууц үгээ оруулна уу.");
       return;
     }
 
@@ -182,20 +125,15 @@ export default function LoginPage() {
             <Button
               label={loading ? "Түр хүлээнэ үү" : "Нэвтрэх"}
               height={88}
-              onPress={
-                loading
-                  ? undefined
-                  : () =>
-                      handleTwoPressButton("login", SOUNDS.login, handleLogin)
-              }
+              audioSource={SOUNDS.login}
+              onPress={loading ? undefined : handleLogin}
             />
 
             <Button
               label="Буцах"
               height={88}
-              onPress={() =>
-                handleTwoPressButton("back", SOUNDS.back, () => router.back())
-              }
+              audioSource={SOUNDS.back}
+              onPress={() => router.back()}
             />
           </View>
         </ScrollView>

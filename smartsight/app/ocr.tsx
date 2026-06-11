@@ -86,6 +86,7 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
   const { speechSpeed } = useSettings();
   const { checkSpelling, reset: resetSpellCheck } = useBolorSpellCheck();
   const { speak, stop } = useVoice();
+  const balanceDisabled = st !== "idle";
 
   const preloaded = {
     instruction: require("@/assets/haptics/tilt-device-instruction.mp3"),
@@ -200,7 +201,9 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
       console.warn("[OCR] Capture or recognition failed:", error);
       await stopGuideAudio();
       setOcrText(
-        error instanceof Error ? `(Recognition failed: ${error.message})` : "(Recognition failed)",
+        error instanceof Error
+          ? `(Recognition failed: ${error.message})`
+          : "(Recognition failed)",
       );
       speak("Текст уншихад алдаа гарлаа.", "urgent");
       setSt("done");
@@ -216,7 +219,10 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
 
   function speakOcrResult(text: string) {
     const speechText = prepareTextForSpeech(text);
-    speak(speechText ? Strings.ocr.result(speechText) : Strings.ocr.noText, "urgent");
+    speak(
+      speechText ? Strings.ocr.result(speechText) : Strings.ocr.noText,
+      "urgent",
+    );
   }
 
   function prepareTextForSpeech(text: string): string {
@@ -237,7 +243,7 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
 
   if (!permission) {
     return (
-      <BalancerProvider>
+      <BalancerProvider disabled>
         <Screen>
           <TopBar title="Текст унших" onBack={onBack} />
           <View
@@ -252,7 +258,7 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
 
   if (!permission.granted) {
     return (
-      <BalancerProvider>
+      <BalancerProvider disabled>
         <Screen>
           <TopBar title="Текст унших" onBack={onBack} />
           <View
@@ -271,8 +277,8 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <BalancerProvider>
-      <Screen style={{ gap: 14 }}>
+    <BalancerProvider disabled={balanceDisabled}>
+      <Screen style={{ gap: 5 }}>
         <TopBar title="Текст унших" onBack={onBack} />
         <CameraView
           ref={cameraRef}
@@ -285,43 +291,33 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
             ? "Уншиж байна…"
             : st === "correcting"
               ? "Алдааг шалгаж байна…"
-            : st === "done"
-              ? "Дахин авахад хүлээнэ"
-              : "Зураг авна"}
+              : st === "done"
+                ? "Дахин авахад хүлээнэ"
+                : "Зураг авна"}
         </Text>
-
+        <View style={ss.featureRow}>
+          <View style={{ flex: 1 }}>
+            <Button label="Зураг авах" height={80} onPress={captureAndOcr} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              audioSource={preloaded.back}
+              label="Буцах"
+              height={80}
+              onPress={() => {
+                stop();
+                router.back();
+              }}
+            />
+          </View>
+        </View>
         {st === "done" && (
-          <ScrollView style={ss.ocrResult} showsVerticalScrollIndicator={false}>
-            <Text style={ss.ocrResultText}>{ocrText || "(No result)"}</Text>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <Text>{ocrText || "(No result)"}</Text>
           </ScrollView>
         )}
 
         {st !== "done" && <View style={{ flex: 1 }} />}
-
-        {st === "done" ? (
-          <Button
-            label="Дахин авах"
-            height={92}
-            onPress={() => {
-              stop();
-              setSt("idle");
-              setOcrText("");
-              resetSpellCheck();
-            }}
-          />
-        ) : (
-          <Button label="Зураг авах" height={92} onPress={captureAndOcr} />
-        )}
-
-        <Button
-          audioSource={preloaded.back}
-          label="Буцах"
-          height={92}
-          onPress={() => {
-            stop();
-            router.back();
-          }}
-        />
       </Screen>
     </BalancerProvider>
   );

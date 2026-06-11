@@ -43,7 +43,7 @@ export default function App() {
   const SOUNDS = {
     newUser: require("../assets/haptics/newuserbtn.mp3"),
     registeredUser: require("../assets/haptics/registereduserbtn.mp3"),
-    settings: require("@/assets/haptics/SettingsBtn.mp3")
+    settings: require("@/assets/haptics/SettingsBtn.mp3"),
   };
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export default function App() {
   }, []);
 
   return (
-    <View style={{ flex: 1, justifyContent: "center", gap: 20, padding: 20 }}>
+    <View style={{ flex: 1, justifyContent: "center", gap: 10, padding: 20 }}>
       <View style={{ alignItems: "center" }}>
         <Logo size={40} />
         <Text style={styles.helpText}>
@@ -65,23 +65,27 @@ export default function App() {
         </Text>
       </View>
       <Button
+        height={100}
         label="Шинэ хэрэглэгч"
         audioSource={SOUNDS.newUser}
         onPress={() => router.push("/register")}
       />
       <Button
+        height={100}
         label="Бүртгэлтэй хэрэглэгч"
         audioSource={SOUNDS.registeredUser}
         onPress={() => router.push("/login")}
       />
       <Button
-        label="Шууд орох (туршилт)"
-        onPress={() => router.replace("/home")}
-      />
-      <Button
+        height={100}
         label="Тохиргоо"
         audioSource={SOUNDS.settings}
         onPress={() => router.push("/settings")}
+      />
+      <Button
+        height={100}
+        label="Шууд орох (туршилт)"
+        onPress={() => router.replace("/home")}
       />
     </View>
   );

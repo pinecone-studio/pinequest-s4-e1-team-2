@@ -16,6 +16,7 @@ type BalancerContextType = {
   tiltY: number; // degrees: left/right tilt (roll)
   isLevel: boolean; // true when phone is flat enough to scan
   guidance: string; // human-readable instruction e.g. "Tilt left a little"
+  disabled: boolean;
 };
 
 export const BalancerContext = createContext({} as BalancerContextType);
@@ -34,8 +35,10 @@ const preloaded = {
 
 export const BalancerProvider = ({
   children,
+  disabled = false,
 }: {
   children: React.ReactNode;
+  disabled?: boolean;
 }) => {
   const [tiltX, setTiltX] = useState(0);
   const [tiltY, setTiltY] = useState(0);
@@ -118,6 +121,12 @@ export const BalancerProvider = ({
 
   const lastGuidance = useRef("");
   useEffect(() => {
+    if (disabled) {
+      lastGuidance.current = "";
+      void stopActiveSound();
+      return;
+    }
+
     if (guidance !== lastGuidance.current) {
       lastGuidance.current = guidance;
       const guidanceMap: Record<string, keyof typeof preloaded | null> = {
@@ -126,22 +135,30 @@ export const BalancerProvider = ({
         "Tilt right a little": "left",
         "Tilt left a little": "right",
         "Phone is level": "dontmove",
-
       };
       const key = guidanceMap[guidance] ?? null;
       if (key) {
         playSoundFile(preloaded[key]);
       }
     }
-  }, [guidance]);
+  }, [disabled, guidance]);
+
+  async function stopActiveSound() {
+    if (!activeSoundRef.current) return;
+
+    try {
+      await activeSoundRef.current.stopAsync().catch(() => {});
+      await activeSoundRef.current.unloadAsync().catch(() => {});
+    } finally {
+      activeSoundRef.current = null;
+    }
+  }
 
   async function playSoundFile(source: AVPlaybackSource) {
+    if (disabled) return;
+
     try {
-      if (activeSoundRef.current) {
-        await activeSoundRef.current.stopAsync().catch(() => {});
-        await activeSoundRef.current.unloadAsync().catch(() => {});
-        activeSoundRef.current = null;
-      }
+      await stopActiveSound();
       await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
       const { sound } = await Audio.Sound.createAsync(source, {
         shouldPlay: true,
@@ -163,15 +180,12 @@ export const BalancerProvider = ({
 
   useEffect(() => {
     return () => {
-      if (activeSoundRef.current) {
-        activeSoundRef.current.unloadAsync().catch(() => {});
-        activeSoundRef.current = null;
-      }
+      void stopActiveSound();
     };
   }, []);
 
   return (
-    <BalancerContext.Provider value={{ tiltX, tiltY, isLevel, guidance }}>
+    <BalancerContext.Provider value={{ tiltX, tiltY, isLevel, guidance, disabled }}>
       {children}
     </BalancerContext.Provider>
   );
