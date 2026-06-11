@@ -1,4 +1,4 @@
-import { loadTensorflowModel, useTensorflowModel, type TensorflowModel } from "react-native-fast-tflite";
+import { loadTensorflowModel, type TensorflowModel } from "react-native-fast-tflite";
 import * as ImageManipulator from "expo-image-manipulator";
 import { Skia, ColorType, AlphaType } from "@shopify/react-native-skia";
 
@@ -16,7 +16,7 @@ async function ensureModel(): Promise<boolean> {
   if (loading) return false;
   loading = true;
   try {
-    model = await useTensorflowModel(require("@/assets/models/model.tflite"));
+    model = await loadTensorflowModel(require("@/assets/models/model.tflite"), []);
     return true;
   } catch {
     return false;
@@ -60,8 +60,8 @@ export async function detectMoneyViaTM(uri: string): Promise<number | null> {
     if (!(await ensureModel()) || !model) return null;
     const input = await uriToFloat32(uri);
     if (!input) return null;
-    const outputs = model.runSync([input]);
-    const probs = outputs[0] as Float32Array;
+    const outputs = model.runSync([input.buffer as ArrayBuffer]);
+    const probs = new Float32Array(outputs[0]);
     let maxProb = 0;
     let maxIdx = -1;
     for (let i = 0; i < probs.length; i++) {

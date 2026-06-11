@@ -15,27 +15,29 @@ function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
 
 export default function MoneyPage() {
   const [permission, requestPermission] = useCameraPermissions();
-  const { cameraRef, result, isScanning } = useMoneyDetection();
+  const { cameraRef, result, status } = useMoneyDetection();
   const router = useRouter();
 
   if (!permission?.granted) {
     return <PermissionPrompt onRequest={requestPermission} />;
   }
 
+  const isUnknown = status === "unknown";
+
   return (
     <View style={styles.container}>
       <CameraView ref={cameraRef} style={styles.camera} autofocus="on" />
 
-      {isScanning && !result && (
+      {status === "scanning" && (
         <View style={styles.scanningBadge}>
           <ActivityIndicator size="small" color="#fff" />
-          <Text style={styles.scanningText}>Хайж байна...</Text>
+          <Text style={styles.scanningText}>Уншиж байна...</Text>
         </View>
       )}
 
       {result ? (
-        <View style={styles.resultCard}>
-          <Text style={styles.typeLabel}>МӨНГӨ</Text>
+        <View style={[styles.resultCard, isUnknown && styles.resultCardUnknown]}>
+          {!isUnknown && <Text style={styles.typeLabel}>МӨНГӨ</Text>}
           <Text style={styles.resultText}>{result}</Text>
         </View>
       ) : null}
@@ -56,6 +58,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(34,139,34,0.92)",
     padding: 20, borderRadius: 12, alignItems: "center",
     borderWidth: 2, borderColor: "rgba(255,255,255,0.3)",
+  },
+  // Танихгүй — саарал
+  resultCardUnknown: {
+    backgroundColor: "rgba(80,80,80,0.92)",
   },
   typeLabel: {
     color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: "700",
