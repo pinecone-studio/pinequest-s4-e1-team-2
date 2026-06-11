@@ -34,7 +34,13 @@ export function VoiceControlProvider({ children }: { children: React.ReactNode }
   const startListening = useCallback(async () => {
     if (listeningRef.current) return;
     listeningRef.current = true;
-    const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    let granted = false;
+    try {
+      ({ granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync());
+    } catch {
+      listeningRef.current = false;
+      return;
+    }
     if (!granted) {
       listeningRef.current = false;
       return;
@@ -77,7 +83,8 @@ export function VoiceControlProvider({ children }: { children: React.ReactNode }
   // Android: volume товч дарахад идэвхждэг
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    const sub = VolumeManager.addVolumeListener(() => {
+    const sub = VolumeManager.addVolumeListener((result) => {
+      if (result.type !== 'music') return;
       startListening();
     });
     return () => sub.remove();
@@ -87,9 +94,9 @@ export function VoiceControlProvider({ children }: { children: React.ReactNode }
   const panResponder = useRef(
     Platform.OS === 'ios'
       ? PanResponder.create({
-          onStartShouldSetPanResponder: (evt) =>
+          onStartShouldSetPanResponderCapture: (evt) =>
             evt.nativeEvent.touches.length >= 2,
-          onMoveShouldSetPanResponder: (evt) =>
+          onMoveShouldSetPanResponderCapture: (evt) =>
             evt.nativeEvent.touches.length >= 2,
           onPanResponderGrant: () => {
             timerRef.current = setTimeout(() => startListening(), 700);
