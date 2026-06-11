@@ -17,7 +17,7 @@ import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import type { AVPlaybackSource } from "expo-av";
 import { useSettings } from "@/providers/SettingsProvider";
-import { useVoice } from "@/src/voice";
+import { useVoice, speech } from "@/src/voice";
 import { Screen } from "../Screen";
 import { AccessibleElement } from "../AccessibleElement";
 import { useAccessibility } from "@/providers/AccesibilityProvider";
@@ -431,6 +431,16 @@ const FEATURES = [
     id: "settings",
     label: "Тохиргоо",
   },
+  {
+    id: "bus-route",
+    label: "Автобус чиглэл",
+    audio: undefined,
+  },
+  {
+    id: "nearby-stops",
+    label: "Ойр буудал",
+    audio: undefined,
+  },
 ] as const;
 
 type FeatureId = (typeof FEATURES)[number]["id"];
@@ -492,7 +502,7 @@ export function HomeScreen({
           audioSource={audioSources?.[FEATURES[4].id]}
         />
         <Button
-          label={FEATURES[4].label}
+          label={FEATURES[5].label}
           height={112}
           onPress={() => onNav(FEATURES[5].id)}
           audioSource={audioSources?.[FEATURES[5].id]}

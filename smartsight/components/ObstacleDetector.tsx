@@ -58,10 +58,13 @@ const VEHICLE_COOLDOWN_MS = 800; // Тээврийн хэрэгсэлд хурд
 // ── Шөнийн горим ─────────────────────────────────────────────────────────────
 const DARK_BRIGHTNESS_THRESHOLD = 60; // 0-255, доор нь torch асна
 
-// ── Roboflow мөчир таних ────────────────────────────────────────────────────
+// ── Roboflow таних (experimental) ────────────────────────────────────────────
 const ROBOFLOW_API_KEY = process.env.EXPO_PUBLIC_ROBOFLOW_API_KEY;
 const BRANCH_MODEL_ID = 'tree-branch-detection-jemc7/1';
-const BRANCH_CHECK_INTERVAL = 3000;
+const BARRIER_MODEL_ID = 'gate-ownof/1';
+const ROBOFLOW_CHECK_INTERVAL = 3000;
+const BRANCH_CONF_THRESHOLD = 0.70;
+const BARRIER_CONF_THRESHOLD = 0.60;
 
 // ── COCO class нэрүүд (монгол) ──────────────────────────────────────────────
 
@@ -351,6 +354,7 @@ export default function ObstacleDetector() {
   const [modelReady, setModelReady]     = useState(false);
   const [modelError, setModelError]     = useState<string | null>(null);
   const [branchCount, setBranchCount]   = useState(0);
+  const [barrierDetected, setBarrierDetected] = useState(false);
   const [torchOn, setTorchOn]           = useState(false);       // [1] Шөнийн горим
   const [approachingText, setApproachingText] = useState('');    // [2] Ойртож буй
   const [trafficLightColor, setTrafficLightColor] = useState<TrafficColor>(null);
@@ -521,12 +525,10 @@ export default function ObstacleDetector() {
     } catch { /* sound not ready */ }
   }, [startParkingBeep]);
 
-  // Мөчир таних (Roboflow API)
-  const detectBranches = useCallback(async () => {
+  // Roboflow таних: мөчир + хаалт (нэг зургаар 2 модел)
+  const detectRoboflow = useCallback(async () => {
     if (branchBusyRef.current || cameraBusyRef.current || !activeRef.current || !cameraReadyRef.current) return;
     if (!cameraRef.current || !ROBOFLOW_API_KEY) return;
-    // Хүн илэрсэн фрэймд мөчир таних алгасна (false positive шүүлт)
-    if (dangerBoxes.some(b => b.classId === 0)) return;
 
     branchBusyRef.current = true;
     cameraBusyRef.current = true;
@@ -535,35 +537,54 @@ export default function ObstacleDetector() {
       cameraBusyRef.current = false;
       if (!photo?.base64) return;
 
-      const response = await fetch(
-        `https://serverless.roboflow.com/${BRANCH_MODEL_ID}?api_key=${ROBOFLOW_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: photo.base64,
-        },
-      );
-      const data = await response.json();
-      const allBranches = data.predictions ?? [];
-      // Зөвхөн confidence > 0.6 байвал мөчир гэж тооцно (false positive шүүлт)
-      const branches = allBranches.filter((p: any) => p.confidence >= 0.6);
-      if (allBranches.length > 0) {
-        console.log(`[ObstacleDetector] мөчир confidence: ${allBranches.map((p: any) => p.confidence?.toFixed(2)).join(', ')}`);
-      }
-      setBranchCount(branches.length);
+      const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+      const skipBranch = dangerBoxes.some(b => b.classId === 0); // Хүн байвал мөчир алгасна
 
-      if (branches.length > 0) {
-        console.log(`[ObstacleDetector] ${branches.length} мөчир илэрлээ`);
-        speech.speak(`Мөчир ${branches.length} ширхэг, толгойгоо нугал`, 'urgent');
-        Vibration.vibrate([0, 200, 100, 200, 100, 200]);
+      const [branchRes, barrierRes] = await Promise.allSettled([
+        skipBranch
+          ? Promise.resolve(null)
+          : fetch(`https://serverless.roboflow.com/${BRANCH_MODEL_ID}?api_key=${ROBOFLOW_API_KEY}`, { method: 'POST', headers, body: photo.base64 }).then(r => r.json()),
+        fetch(`https://serverless.roboflow.com/${BARRIER_MODEL_ID}?api_key=${ROBOFLOW_API_KEY}`, { method: 'POST', headers, body: photo.base64 }).then(r => r.json()),
+      ]);
+
+      // ── Мөчир ──
+      if (branchRes.status === 'fulfilled' && branchRes.value) {
+        const allBranches = branchRes.value.predictions ?? [];
+        const branches = allBranches.filter((p: any) => p.confidence >= BRANCH_CONF_THRESHOLD);
+        if (allBranches.length > 0) {
+          console.log(`[ObstacleDetector] мөчир confidence: ${allBranches.map((p: any) => p.confidence?.toFixed(2)).join(', ')}`);
+        }
+        setBranchCount(branches.length);
+        if (branches.length > 0) {
+          speech.speak(`Мөчир ${branches.length} ширхэг, толгойгоо нугал`, 'urgent');
+          Vibration.vibrate([0, 200, 100, 200, 100, 200]);
+        }
+      } else {
+        setBranchCount(0);
+      }
+
+      // ── Хаалт ──
+      if (barrierRes.status === 'fulfilled' && barrierRes.value) {
+        const allBarriers = barrierRes.value.predictions ?? [];
+        const barriers = allBarriers.filter((p: any) => p.confidence >= BARRIER_CONF_THRESHOLD);
+        if (allBarriers.length > 0) {
+          console.log(`[ObstacleDetector] хаалт confidence: ${allBarriers.map((p: any) => p.confidence?.toFixed(2)).join(', ')}`);
+        }
+        setBarrierDetected(barriers.length > 0);
+        if (barriers.length > 0) {
+          speech.speak('Автомат хаалт илэрлээ, болгоомжтой', 'urgent');
+          Vibration.vibrate([0, 300, 100, 300]);
+        }
+      } else {
+        setBarrierDetected(false);
       }
     } catch (err) {
-      console.warn('[ObstacleDetector] branch detect алдаа:', err);
+      console.warn('[ObstacleDetector] roboflow detect алдаа:', err);
     } finally {
       branchBusyRef.current = false;
       cameraBusyRef.current = false;
     }
-  }, []);
+  }, [dangerBoxes]);
 
   const detect = useCallback(async () => {
     if (busyRef.current || cameraBusyRef.current || !activeRef.current || !cameraReadyRef.current) return;
@@ -611,12 +632,12 @@ export default function ObstacleDetector() {
   useEffect(() => {
     if (!permission?.granted) return;
     timerRef.current = setInterval(detect, DETECT_INTERVAL_MS);
-    branchTimerRef.current = setInterval(detectBranches, BRANCH_CHECK_INTERVAL);
+    branchTimerRef.current = setInterval(detectRoboflow, ROBOFLOW_CHECK_INTERVAL);
     return () => {
       clearInterval(timerRef.current);
       clearInterval(branchTimerRef.current);
     };
-  }, [permission?.granted, detect, detectBranches]);
+  }, [permission?.granted, detect, detectRoboflow]);
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -706,6 +727,15 @@ export default function ObstacleDetector() {
         <View style={s.branchBanner}>
           <Text style={s.bannerText}>МӨЧИР ИЛЭРЛЭЭ</Text>
           <Text style={s.bannerSub}>{branchCount} мөчир — толгойгоо нугал</Text>
+          <Text style={s.experimentalTag}>experimental</Text>
+        </View>
+      )}
+
+      {barrierDetected && (
+        <View style={s.barrierBanner}>
+          <Text style={s.bannerText}>АВТОМАТ ХААЛТ</Text>
+          <Text style={s.bannerSub}>Болгоомжтой — хаалт илэрлээ</Text>
+          <Text style={s.experimentalTag}>experimental</Text>
         </View>
       )}
 
@@ -763,6 +793,15 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(34,139,34,0.92)',
     paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12,
     alignItems: 'center',
+  },
+  barrierBanner: {
+    position: 'absolute', bottom: 230, alignSelf: 'center',
+    backgroundColor: 'rgba(200,100,0,0.92)',
+    paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12,
+    alignItems: 'center',
+  },
+  experimentalTag: {
+    color: 'rgba(255,255,255,0.5)', fontSize: 10, fontStyle: 'italic', marginTop: 4,
   },
 
   torchBadge: {

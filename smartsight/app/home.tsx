@@ -12,6 +12,8 @@ const ROUTES = {
   "room-search": "/room-search",
   settings: "/settings",
   instructions: "/",
+  "bus-route": "/bus-route",
+  "nearby-stops": "/nearby-stops",
 } as const;
 
 type HomeRoute =
@@ -20,9 +22,11 @@ type HomeRoute =
   | "ocr"
   | "location"
   | "room-search"
-  | "settings";
+  | "settings"
+  | "bus-route"
+  | "nearby-stops";
 
-const AUDIO_SOURCES: Record<HomeRoute, AVPlaybackSource> = {
+const AUDIO_SOURCES: Partial<Record<HomeRoute, AVPlaybackSource>> = {
   obstacle: require("@/assets/haptics/obidentifybtn.mp3"),
   recognize: require("@/assets/haptics/grlidentifybtn.mp3"),
   ocr: require("@/assets/haptics/textreaderbtn.mp3"),
@@ -68,6 +72,14 @@ const FEATURES = [
     id: "settings",
     label: "Тохиргоо",
   },
+  {
+    id: "bus-route",
+    label: "Автобус чиглэл",
+  },
+  {
+    id: "nearby-stops",
+    label: "Ойр буудал",
+  },
 ] as const;
 
 type FeatureId = (typeof FEATURES)[number]["id"];
@@ -83,8 +95,6 @@ export function HomeScreen({
     <Screen style={{ gap: 18 }}>
       <Logo size={24} />
       <Text style={ss.homeHeading}>Юу хийх вэ?</Text>
-      {/* Web used CSS grid 1fr 1fr. RN doesn't have CSS grid.
-          Trick: wrap every 2 items in a row View */}
       <View style={{ flex: 1, gap: 14 }}>
         <View style={ss.featureRow}>
           <View style={{ flex: 1 }}>
@@ -126,7 +136,7 @@ export function HomeScreen({
           <View style={{ flex: 1 }}>
             <Button
               label={FEATURES[4].label}
-              height={150}
+              height={112}
               onPress={() => onNav(FEATURES[4].id)}
               audioSource={audioSources?.[FEATURES[4].id]}
             />
@@ -134,9 +144,27 @@ export function HomeScreen({
           <View style={{ flex: 1 }}>
             <Button
               label={FEATURES[5].label}
-              height={150}
+              height={112}
               onPress={() => onNav(FEATURES[5].id)}
               audioSource={audioSources?.[FEATURES[5].id]}
+            />
+          </View>
+        </View>
+        <View style={ss.featureRow}>
+          <View style={{ flex: 1 }}>
+            <Button
+              label={FEATURES[6].label}
+              height={100}
+              onPress={() => onNav(FEATURES[6].id)}
+              audioSource={audioSources?.[FEATURES[6].id]}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              label={FEATURES[7].label}
+              height={100}
+              onPress={() => onNav(FEATURES[7].id)}
+              audioSource={audioSources?.[FEATURES[7].id]}
             />
           </View>
         </View>
