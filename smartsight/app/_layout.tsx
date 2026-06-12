@@ -1,9 +1,11 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import { View } from "react-native";
 import { PermissionProvider } from "../providers/usePermission";
 import { SettingsProvider } from "@/providers/SettingsProvider";
 import { AccessibilityProvider } from "@/providers/AccesibilityProvider";
+import { ExploreOverlay } from "@/components/ExploreOverlay";
 import { VoiceProvider } from "@/src/voice";
 import { VoiceControlProvider } from "@/providers/VoiceControlProvider";
 
@@ -22,25 +24,28 @@ export default function RootLayout() {
         <PermissionProvider>
           <SettingsProvider>
             <VoiceControlProvider>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="login" />
-                <Stack.Screen name="register" />
-                <Stack.Screen name="permission" />
-                <Stack.Screen name="home" />
-                <Stack.Screen name="obstacle" />
-                <Stack.Screen name="recognize" />
-                <Stack.Screen name="ocr" />
-                <Stack.Screen name="location" />
-                <Stack.Screen name="room-search" />
-                <Stack.Screen name="settings" />
-                <Stack.Screen name="transport" />
-                <Stack.Screen name="bus-route" />
-                <Stack.Screen name="bus-journey" />
-                <Stack.Screen name="bus-scan" />
-                <Stack.Screen name="nearby-stops" />
-                <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-              </Stack>
+              <View style={{ flex: 1 }}>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="index" />
+                  <Stack.Screen name="login" />
+                  <Stack.Screen name="register" />
+                  <Stack.Screen name="permission" />
+                  <Stack.Screen name="home" />
+                  <Stack.Screen name="obstacle" />
+                  <Stack.Screen name="recognize" />
+                  <Stack.Screen name="ocr" />
+                  <Stack.Screen name="location" />
+                  <Stack.Screen name="room-search" />
+                  <Stack.Screen name="settings" />
+                  <Stack.Screen name="transport" />
+                  <Stack.Screen name="bus-route" />
+                  <Stack.Screen name="bus-journey" />
+                  <Stack.Screen name="bus-scan" />
+                  <Stack.Screen name="nearby-stops" />
+                  <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+                </Stack>
+                <ExploreOverlay />
+              </View>
             </VoiceControlProvider>
           </SettingsProvider>
         </PermissionProvider>

@@ -1,17 +1,25 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Screen } from "@/components/Screen";
 import { router } from "expo-router";
 import { TopBar, ss } from "@/components/ui-generated/_comps";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button } from "@/components/ui-generated/_comps";
 import { BalancerProvider } from "@/providers/useBalancer";
-import { useSettings } from "@/providers/SettingsProvider";
 import { useBolorSpellCheck } from "@/components/useBolorSpellCheck";
-import { Strings, useVoice } from "@/src/voice";
-import { Audio, AVPlaybackSource } from "expo-av";
+import { useVoice } from "@/src/voice";
+import { Audio } from "expo-av";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import type { CameraType } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
+import { playSoundFile, stopAllAudio } from "@/services/audio";
+
+const AUTO_DETECT_INTERVAL_MS = 2600;
+
+const PRELOADED_AUDIO = {
+  instruction: require("@/assets/haptics/tilt-device-instruction.mp3"),
+  pleaseWait: require("@/assets/haptics/pleasewait.mp3"),
+  back: require("@/assets/haptics/backbtn.mp3"),
+};
 
 export default function OcrPage() {
   return <OcrScreen onBack={() => router.replace("/home")} />;
@@ -80,19 +88,14 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
   );
   const [ocrText, setOcrText] = useState<string>("");
   const [cameraReady, setCameraReady] = useState(false);
+  const [scanVersion, setScanVersion] = useState(0);
   const cameraFacing: CameraType = "back";
   const cameraRef = useRef<CameraView | null>(null);
-  const activeSoundRef = useRef<Audio.Sound | null>(null);
-  const { speechSpeed } = useSettings();
+  const busyRef = useRef(false);
+  const foundTextRef = useRef(false);
   const { checkSpelling, reset: resetSpellCheck } = useBolorSpellCheck();
-  const { speak, stop } = useVoice();
+  const { stop } = useVoice();
   const balanceDisabled = st !== "idle";
-
-  const preloaded = {
-    instruction: require("@/assets/haptics/tilt-device-instruction.mp3"),
-    dontmove: require("@/assets/haptics/directions/dont-move-device.mp3"),
-    back: require("@/assets/haptics/backbtn.mp3"),
-  };
 
   useEffect(() => {
     if (!permission) {
@@ -102,127 +105,74 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
     }
 
     return () => {
-      if (activeSoundRef.current) {
-        activeSoundRef.current.unloadAsync().catch(() => {});
-        activeSoundRef.current = null;
-      }
+      void stopAllAudio();
     };
   }, [permission, requestPermission]);
 
   useEffect(() => {
     return () => {
       stop();
+      void stopAllAudio();
     };
   }, [stop]);
 
-  async function playSoundFile(source: AVPlaybackSource) {
-    try {
-      if (activeSoundRef.current) {
-        await activeSoundRef.current.unloadAsync();
-        activeSoundRef.current = null;
-      }
-
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-
-      const { sound } = await Audio.Sound.createAsync(source, {
-        shouldPlay: true,
-      });
-      activeSoundRef.current = sound;
-
-      // [control] — connective point where speed value is applied
-      await sound.setRateAsync(speechSpeed ?? 1, true);
-
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync();
-          activeSoundRef.current = null;
-        }
-      });
-    } catch (err) {
-      console.warn("OCR audio failed:", err);
-    }
-  }
-
-  async function stopGuideAudio() {
-    if (!activeSoundRef.current) return;
-
-    try {
-      await activeSoundRef.current.unloadAsync();
-    } catch {
-      // The guide clip may already be released by its playback callback.
-    } finally {
-      activeSoundRef.current = null;
-    }
-  }
-
-  async function captureAndOcr() {
-    if (!cameraRef.current || !cameraReady) {
+  const captureAndOcr = useCallback(async () => {
+    if (!cameraRef.current || !cameraReady || busyRef.current || foundTextRef.current) {
       return;
     }
+    busyRef.current = true;
     setSt("reading");
-    setOcrText("");
     resetSpellCheck();
     stop();
-    speak(Strings.ocr.reading, "urgent");
+    await stopAllAudio();
+    await playSoundFile(PRELOADED_AUDIO.pleaseWait);
 
     try {
-      // Take picture, then resize/compress it for OCR.space upload limits.
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.75,
         shutterSound: false,
       });
 
       if (!photo?.uri) {
-        setOcrText("(No image captured)");
-        await stopGuideAudio();
-        speak(Strings.ocr.noText, "urgent");
-        setSt("done");
         return;
       }
 
       const base64 = await preparePhotoForOcr(photo.uri);
-
-      // play a short prompt while processing
-      await playSoundFile(preloaded.dontmove);
-
-      // Send photo base64 to OCR
       const text = await runOcr(base64);
       console.log("[OCR] Parsed text:", text);
-      await stopGuideAudio();
+
+      if (!text.trim()) {
+        setSt("idle");
+        return;
+      }
 
       setSt("correcting");
-      speak("Алдааг шалгаж байна.", "normal");
       const correctedText = await correctOcrText(text);
-      const nextText = correctedText || "(No text found)";
+      const nextText = prepareTextForSpeech(correctedText || text);
+
+      if (!nextText) {
+        setSt("idle");
+        return;
+      }
+
+      foundTextRef.current = true;
       setOcrText(nextText);
-      speakOcrResult(correctedText);
+      await stopAllAudio();
       setSt("done");
     } catch (error) {
       console.warn("[OCR] Capture or recognition failed:", error);
-      await stopGuideAudio();
-      setOcrText(
-        error instanceof Error
-          ? `(Recognition failed: ${error.message})`
-          : "(Recognition failed)",
-      );
-      speak("Текст уншихад алдаа гарлаа.", "urgent");
-      setSt("done");
+      await stopAllAudio();
+      setSt("idle");
+    } finally {
+      busyRef.current = false;
     }
-  }
+  }, [cameraReady, resetSpellCheck, stop]);
 
   async function correctOcrText(text: string): Promise<string> {
     if (!text.trim()) return text;
 
     const spellCheckResult = await checkSpelling(text);
     return spellCheckResult?.correctedText ?? text;
-  }
-
-  function speakOcrResult(text: string) {
-    const speechText = prepareTextForSpeech(text);
-    speak(
-      speechText ? Strings.ocr.result(speechText) : Strings.ocr.noText,
-      "urgent",
-    );
   }
 
   function prepareTextForSpeech(text: string): string {
@@ -236,10 +186,32 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
     async function startupAudio() {
       const { granted } = await Audio.requestPermissionsAsync();
       if (!granted) return;
-      await playSoundFile(preloaded.instruction);
+      await playSoundFile(PRELOADED_AUDIO.instruction);
     }
     startupAudio();
   }, []);
+
+  useEffect(() => {
+    if (!permission?.granted || !cameraReady || foundTextRef.current) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const schedule = () => {
+      if (cancelled || foundTextRef.current) return;
+      timer = setTimeout(async () => {
+        await captureAndOcr();
+        schedule();
+      }, AUTO_DETECT_INTERVAL_MS);
+    };
+
+    void captureAndOcr().finally(schedule);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [cameraReady, captureAndOcr, permission?.granted, scanVersion]);
 
   if (!permission) {
     return (
@@ -280,45 +252,86 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
     <BalancerProvider disabled={balanceDisabled}>
       <Screen style={{ gap: 5 }}>
         <TopBar title="Текст унших" onBack={onBack} />
-        <CameraView
-          ref={cameraRef}
-          style={{ height: 500, borderRadius: 12, overflow: "hidden" }}
-          facing={cameraFacing}
-          onCameraReady={() => setCameraReady(true)}
-        />
+        <View style={styles.cameraWrap}>
+          <CameraView
+            ref={cameraRef}
+            style={styles.camera}
+            facing={cameraFacing}
+            onCameraReady={() => setCameraReady(true)}
+          />
+          {ocrText ? (
+            <ScrollView
+              style={styles.detectedTextOverlay}
+              contentContainerStyle={styles.detectedTextContent}
+              showsVerticalScrollIndicator
+            >
+              <Text style={styles.detectedText}>{ocrText}</Text>
+            </ScrollView>
+          ) : null}
+        </View>
         <Text style={ss.cameraHint}>
           {st === "reading"
-            ? "Уншиж байна…"
+            ? "Текст хайж байна…"
             : st === "correcting"
               ? "Алдааг шалгаж байна…"
               : st === "done"
-                ? "Дахин авахад хүлээнэ"
-                : "Зураг авна"}
+                ? "Текст олдлоо"
+                : "Камер текст автоматаар хайж байна"}
         </Text>
         <View style={ss.featureRow}>
           <View style={{ flex: 1 }}>
-            <Button label="Зураг авах" height={80} onPress={captureAndOcr} />
+            <Button
+              label={st === "done" ? "Дахин хайх" : "Одоо хайх"}
+              height={80}
+              onPress={() => {
+                foundTextRef.current = false;
+                setOcrText("");
+                setSt("idle");
+                setScanVersion((current) => current + 1);
+              }}
+            />
           </View>
           <View style={{ flex: 1 }}>
             <Button
-              audioSource={preloaded.back}
+              audioSource={PRELOADED_AUDIO.back}
               label="Буцах"
               height={80}
               onPress={() => {
                 stop();
+                void stopAllAudio();
                 router.back();
               }}
             />
           </View>
         </View>
-        {st === "done" && (
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <Text>{ocrText || "(No result)"}</Text>
-          </ScrollView>
-        )}
-
         {st !== "done" && <View style={{ flex: 1 }} />}
       </Screen>
     </BalancerProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  cameraWrap: {
+    height: 500,
+    borderRadius: 12,
+    overflow: "hidden",
+    position: "relative",
+    backgroundColor: "#000",
+  },
+  camera: {
+    flex: 1,
+  },
+  detectedTextOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.72)",
+  },
+  detectedTextContent: {
+    padding: 18,
+  },
+  detectedText: {
+    color: "#fff",
+    fontSize: 30,
+    lineHeight: 40,
+    fontWeight: "700",
+  },
+});
