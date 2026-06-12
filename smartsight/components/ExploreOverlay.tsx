@@ -4,13 +4,10 @@ import { usePathname } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAccessibility } from "@/providers/AccesibilityProvider";
 import { playSoundFile } from "@/services/audio";
+import { speech } from "@/src/voice";
 
 const DOUBLE_TAP_MS = 350;
 const DRAG_SLOP = 12;
-
-// ExploreOverlay зөвхөн home дэлгэц дээр ажиллана.
-// Бусад дэлгэц дээр TextInput зэрэг touch элементүүдийг блоклохгүй.
-const OVERLAY_SCREENS = ["/home"];
 
 export function ExploreOverlay() {
   const pathname = usePathname();
@@ -19,7 +16,6 @@ export function ExploreOverlay() {
   const lastTapRef = useRef<{ id: string; time: number } | null>(null);
   const startPointRef = useRef<{ x: number; y: number } | null>(null);
   const movedRef = useRef(false);
-  const enabled = OVERLAY_SCREENS.includes(pathname);
 
   const readAtPoint = useCallback(
     (x?: number, y?: number) => {
@@ -37,7 +33,11 @@ export function ExploreOverlay() {
       if (hit.id !== currentIdRef.current) {
         currentIdRef.current = hit.id;
         Haptics.selectionAsync();
-        void playSoundFile(hit.audioSource);
+        if (hit.audioSource) {
+          void playSoundFile(hit.audioSource);
+        } else {
+          speech.speak(hit.label);
+        }
       }
 
       return hit;
@@ -65,13 +65,11 @@ export function ExploreOverlay() {
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: (evt) => {
-          if (!enabled) return false;
           const x = evt.nativeEvent.pageX ?? evt.nativeEvent.locationX;
           const y = evt.nativeEvent.pageY ?? evt.nativeEvent.locationY;
           return Boolean(readAtPoint(x, y));
         },
         onMoveShouldSetPanResponder: (evt) => {
-          if (!enabled) return false;
           const x = evt.nativeEvent.pageX ?? evt.nativeEvent.locationX;
           const y = evt.nativeEvent.pageY ?? evt.nativeEvent.locationY;
           return Boolean(readAtPoint(x, y));
@@ -116,12 +114,8 @@ export function ExploreOverlay() {
           startPointRef.current = null;
         },
       }),
-    [enabled, hitTest, markMoved, pathname, readAtPoint, setActiveElementId],
+    [hitTest, markMoved, pathname, readAtPoint, setActiveElementId],
   );
-
-  if (!enabled) {
-    return null;
-  }
 
   return (
     <View
