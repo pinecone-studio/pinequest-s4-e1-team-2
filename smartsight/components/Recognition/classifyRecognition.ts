@@ -3,8 +3,6 @@ interface TextBlockLike {
   frame?: { width: number; height: number; top?: number; left?: number };
 }
 
-const PROMINENCE_RATIO = 0.005;
-
 function blockArea(block: TextBlockLike): number {
   if (!block.frame) return 0;
   return block.frame.width * block.frame.height;
@@ -15,19 +13,57 @@ export function selectPrimaryBlock(blocks: TextBlockLike[]): TextBlockLike | nul
   return blocks.reduce((a, b) => (blockArea(b) > blockArea(a) ? b : a));
 }
 
-function isProminent(block: TextBlockLike, photoArea: number): boolean {
-  return photoArea > 0 && blockArea(block) / photoArea >= PROMINENCE_RATIO;
+interface DoorNum {
+  value: string;
+  centerX: number;
+  area: number;
 }
 
-function extractNumber(text: string): string | null {
-  const match = text.replace(/\s/g, "").match(/\d+/);
-  return match ? match[0] : null;
+// Бүх блокоос хаалганы дугаар маягийн тоонуудыг (1-4 орон) байрлалтай нь гаргана
+function extractDoorNumbers(blocks: TextBlockLike[]): DoorNum[] {
+  const found: DoorNum[] = [];
+  for (const b of blocks) {
+    const tokens = b.text.match(/\d{1,4}/g);
+    if (!tokens) continue;
+    const left = b.frame?.left ?? 0;
+    const width = b.frame?.width ?? 0;
+    const centerX = left + width / 2;
+    for (const t of tokens) {
+      found.push({ value: t, centerX, area: blockArea(b) });
+    }
+  }
+  return found;
 }
 
-export function detectDoorNumber(block: TextBlockLike | null, photoArea: number): string | null {
-  if (!block || !isProminent(block, photoArea)) return null;
-  const num = extractNumber(block.text);
-  return num && num.length <= 4 ? `${num} дугаар тоот` : null;
+export function detectDoorNumbers(blocks: TextBlockLike[], photoWidth: number): string | null {
+  const nums = extractDoorNumbers(blocks);
+  if (nums.length === 0) return null;
+
+  // Давхардсан утгыг нэгтгэж, хамгийн том талбайтайг үлдээнэ
+  const byValue = new Map<string, DoorNum>();
+  for (const n of nums) {
+    const prev = byValue.get(n.value);
+    if (!prev || n.area > prev.area) byValue.set(n.value, n);
+  }
+  const distinct = Array.from(byValue.values());
+
+  // Ганц тоо
+  if (distinct.length === 1) {
+    return `${distinct[0].value} дугаар тоот`;
+  }
+
+  // 2-4 тусдаа тоо → "A болон B тоонууд" (зүүнээс баруун эрэмбээр)
+  if (distinct.length <= 4) {
+    const sorted = distinct.sort((a, b) => a.centerX - b.centerX);
+    return sorted.map((d) => d.value).join(" болон ") + " тоонууд";
+  }
+
+  // Хэт олон тоо (шуугиантай) → төвд хамгийн ойр ганц тоог л унш
+  const cx = photoWidth / 2;
+  const center = distinct.reduce((a, b) =>
+    Math.abs(b.centerX - cx) < Math.abs(a.centerX - cx) ? b : a
+  );
+  return `${center.value} дугаар тоот`;
 }
 
 export function formatMoney(value: number): string {
