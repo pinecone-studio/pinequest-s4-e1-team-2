@@ -10,12 +10,10 @@ const ROUTES = {
   money: "/money",
   recognize: "/recognize",
   ocr: "/ocr",
-  location: "/location",
   "room-search": "/room-search",
   settings: "/settings",
   instructions: "/",
-  "bus-route": "/bus-route",
-  "nearby-stops": "/nearby-stops",
+  transport: "/transport",
 } as const;
 
 type HomeRoute =
@@ -23,17 +21,14 @@ type HomeRoute =
   | "money"
   | "recognize"
   | "ocr"
-  | "location"
   | "room-search"
   | "settings"
-  | "bus-route"
-  | "nearby-stops";
+  | "transport";
 
 const AUDIO_SOURCES: Partial<Record<HomeRoute, AVPlaybackSource>> = {
   obstacle: require("@/assets/haptics/obidentifybtn.mp3"),
   recognize: require("@/assets/haptics/grlidentifybtn.mp3"),
   ocr: require("@/assets/haptics/textreaderbtn.mp3"),
-  location: require("@/assets/haptics/locationdefinebtn.mp3"),
   "room-search": require("@/assets/haptics/SearchRoomBtn.mp3"),
   settings: require("@/assets/haptics/SettingsBtn.mp3"),
 };
@@ -55,11 +50,9 @@ const FEATURES = [
   { id: "money",        label: "Мөнгө таних" },
   { id: "recognize",    label: "Тоот таних" },
   { id: "ocr",          label: "Текст унших" },
-  { id: "location",     label: "Байршил" },
   { id: "room-search",  label: "Өрөө хайх" },
+  { id: "transport",    label: "Зам тээвэр" },
   { id: "settings",     label: "Тохиргоо" },
-  { id: "bus-route",    label: "Автобус чиглэл" },
-  { id: "nearby-stops", label: "Ойр буудал" },
 ] as const;
 
 type FeatureId = (typeof FEATURES)[number]["id"];
@@ -95,23 +88,15 @@ export function HomeScreen({
         </View>
         <View style={ss.featureRow}>
           <View style={{ flex: 1 }}>
-            <Button label={FEATURES[4].label} height={112} onPress={() => onNav(FEATURES[4].id)} audioSource={audioSources?.[FEATURES[4].id]} />
+            <Button label={FEATURES[4].label} height={120} onPress={() => onNav(FEATURES[4].id)} audioSource={audioSources?.[FEATURES[4].id]} />
           </View>
           <View style={{ flex: 1 }}>
-            <Button label={FEATURES[5].label} height={112} onPress={() => onNav(FEATURES[5].id)} audioSource={audioSources?.[FEATURES[5].id]} />
+            <Button label={FEATURES[5].label} height={120} onPress={() => onNav(FEATURES[5].id)} audioSource={audioSources?.[FEATURES[5].id]} />
           </View>
         </View>
         <View style={ss.featureRow}>
           <View style={{ flex: 1 }}>
             <Button label={FEATURES[6].label} height={100} onPress={() => onNav(FEATURES[6].id)} audioSource={audioSources?.[FEATURES[6].id]} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button label={FEATURES[7].label} height={100} onPress={() => onNav(FEATURES[7].id)} audioSource={audioSources?.[FEATURES[7].id]} />
-          </View>
-        </View>
-        <View style={ss.featureRow}>
-          <View style={{ flex: 1 }}>
-            <Button label={FEATURES[8].label} height={100} onPress={() => onNav(FEATURES[8].id)} audioSource={audioSources?.[FEATURES[8].id]} />
           </View>
           <View style={{ flex: 1 }}>
             <Button label={"Заавар"} height={100} audioSource={instruction} />

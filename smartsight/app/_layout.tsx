@@ -34,6 +34,7 @@ export default function RootLayout() {
                 <Stack.Screen name="location" />
                 <Stack.Screen name="room-search" />
                 <Stack.Screen name="settings" />
+                <Stack.Screen name="transport" />
                 <Stack.Screen name="bus-route" />
                 <Stack.Screen name="bus-journey" />
                 <Stack.Screen name="bus-scan" />
