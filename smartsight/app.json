@@ -54,7 +54,8 @@
           "cameraPermission": "SmartSight камер ашиглан мөнгөн дэвсгэрт болон тоот дугаарыг таних шаардлагатай."
         }
       ],
-      "expo-speech-recognition"
+      "expo-speech-recognition",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

@@ -19,19 +19,15 @@ function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
   );
 }
 
-// [7] Төрөл бүрийн өнгө
 function getCardStyle(type: ResultType) {
   switch (type) {
-    case "money": return styles.resultCardMoney;
     case "door":  return styles.resultCardDoor;
-    case "text":  return styles.resultCardText;
     default:      return styles.resultCard;
   }
 }
 
 function getTypeLabel(type: ResultType): string {
   switch (type) {
-    case "money": return "Мөнгө";
     case "door":  return "Өрөөний дугаар";
     case "text":  return "Текст";
     default:      return "";
@@ -88,13 +84,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
-  // [7] Мөнгө — ногоон
-  resultCardMoney: {
-    backgroundColor: "rgba(34,139,34,0.92)",
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.3)",
-  },
-  // [7] Дугаар — цэнхэр
+  // Дугаар — цэнхэр
   resultCardDoor: {
     backgroundColor: "rgba(30,100,200,0.92)",
     borderWidth: 2,
