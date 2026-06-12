@@ -42,7 +42,15 @@ export default function RecognitionCamera() {
   const { cameraRef, result, resultType, isScanning } = useRecognition();
   const router = useRouter();
 
-  if (!permission?.granted) {
+  if (permission === null) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#fff" />
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
     return <PermissionPrompt onRequest={requestPermission} />;
   }
 

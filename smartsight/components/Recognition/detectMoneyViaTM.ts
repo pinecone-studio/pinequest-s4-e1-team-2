@@ -1,9 +1,15 @@
-import { loadTensorflowModel, type TensorflowModel } from "react-native-fast-tflite";
+import type { TensorflowModel } from "react-native-fast-tflite";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let loadTensorflowModel: ((model: any, delegate: any[]) => Promise<TensorflowModel>) | null = null;
+try {
+  // Native module байхгүй build дээр crash болохоос сэргийлж lazy load хийнэ
+  loadTensorflowModel = require("react-native-fast-tflite").loadTensorflowModel;
+} catch { /* native module холбогдоогүй — detectMoneyViaTM null буцаана */ }
 import * as ImageManipulator from "expo-image-manipulator";
 import { Skia, ColorType, AlphaType } from "@shopify/react-native-skia";
 
 const INPUT_SIZE = 224;
-const CONFIDENCE_THRESHOLD = 0.8;
+const CONFIDENCE_THRESHOLD = 0.6;
 
 // labels.txt: 0→20000, 1→10000, 2→5000, 3→1000, 4→500, 5→100, 6→50, 7→null(танихгүй)
 const LABELS: (number | null)[] = [20000, 10000, 5000, 1000, 500, 100, 50, null];
@@ -16,6 +22,7 @@ async function ensureModel(): Promise<boolean> {
   if (loading) return false;
   loading = true;
   try {
+    if (!loadTensorflowModel) return false;
     model = await loadTensorflowModel(require("@/assets/models/model.tflite"), []);
     return true;
   } catch {
