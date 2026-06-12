@@ -8,6 +8,10 @@ import { playSoundFile } from "@/services/audio";
 const DOUBLE_TAP_MS = 350;
 const DRAG_SLOP = 12;
 
+// ExploreOverlay зөвхөн home дэлгэц дээр ажиллана.
+// Бусад дэлгэц дээр TextInput зэрэг touch элементүүдийг блоклохгүй.
+const OVERLAY_SCREENS = ["/home"];
+
 export function ExploreOverlay() {
   const pathname = usePathname();
   const { hitTest, setActiveElementId } = useAccessibility();
@@ -15,6 +19,7 @@ export function ExploreOverlay() {
   const lastTapRef = useRef<{ id: string; time: number } | null>(null);
   const startPointRef = useRef<{ x: number; y: number } | null>(null);
   const movedRef = useRef(false);
+  const enabled = OVERLAY_SCREENS.includes(pathname);
 
   const readAtPoint = useCallback(
     (x?: number, y?: number) => {
@@ -60,11 +65,13 @@ export function ExploreOverlay() {
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: (evt) => {
+          if (!enabled) return false;
           const x = evt.nativeEvent.pageX ?? evt.nativeEvent.locationX;
           const y = evt.nativeEvent.pageY ?? evt.nativeEvent.locationY;
           return Boolean(readAtPoint(x, y));
         },
         onMoveShouldSetPanResponder: (evt) => {
+          if (!enabled) return false;
           const x = evt.nativeEvent.pageX ?? evt.nativeEvent.locationX;
           const y = evt.nativeEvent.pageY ?? evt.nativeEvent.locationY;
           return Boolean(readAtPoint(x, y));
@@ -109,8 +116,12 @@ export function ExploreOverlay() {
           startPointRef.current = null;
         },
       }),
-    [hitTest, markMoved, pathname, readAtPoint, setActiveElementId],
+    [enabled, hitTest, markMoved, pathname, readAtPoint, setActiveElementId],
   );
+
+  if (!enabled) {
+    return null;
+  }
 
   return (
     <View
