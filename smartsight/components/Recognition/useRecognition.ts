@@ -3,42 +3,30 @@ import { Vibration } from "react-native";
 import { CameraView } from "expo-camera";
 import TextRecognition from "@react-native-ml-kit/text-recognition";
 import { speech } from "@/src/voice";
-import {
-  classifyByColor,
-  detectDoorNumber,
-  formatMoney,
-  selectPrimaryBlock,
-} from "./classifyRecognition";
-import { sampleCenterColor } from "./sampleImageColor";
+import { detectDoorNumber, selectPrimaryBlock } from "./classifyRecognition";
 
-const SCAN_INTERVAL_MS = 1200;
-const MONEY_CONSISTENCY_THRESHOLD = 3;
+const SCAN_INTERVAL_MS = 800;
+const MIN_BLOCK_RATIO = 0.01;
 
-// [6] Объект жижиг байвал "ойртуулна уу" гэж хэлэх threshold
-const MIN_BLOCK_RATIO = 0.01; // зургийн 1%-аас бага бол жижиг
-
-export type ResultType = "money" | "door" | "text" | "scanning" | "none";
+export type ResultType = "door" | "text" | "scanning" | "none";
 
 export function useRecognition() {
   const cameraRef = useRef<CameraView>(null);
   const busyRef = useRef(false);
   const lastAnnouncedRef = useRef<string | null>(null);
-  const moneyCandidateRef = useRef<number | null>(null);
-  const moneyMatchCountRef = useRef(0);
   const [result, setResult] = useState("");
   const [resultType, setResultType] = useState<ResultType>("none");
   const [isScanning, setIsScanning] = useState(false);
-  const lastResultRef = useRef<string>("");       // [3] Сүүлийн үр дүн хадгалах
+  const lastResultRef = useRef<string>("");
   const lastResultTypeRef = useRef<ResultType>("none");
-  const tooSmallCountRef = useRef(0);             // [6] Жижиг объект тоолох
-  const hasSpokenIntroRef = useRef(false);         // [1] Заавар нэг л удаа
+  const tooSmallCountRef = useRef(0);
+  const hasSpokenIntroRef = useRef(false);
 
-  // [1] Нэвтрэх үед дуут заавар
   useEffect(() => {
     if (!hasSpokenIntroRef.current) {
       hasSpokenIntroRef.current = true;
       setTimeout(() => {
-        speech.speak("Мөнгө эсвэл хаалганы дугаар камер руу харуулна уу");
+        speech.speak("Хаалганы дугаар камер руу харуулна уу");
       }, 500);
     }
   }, []);
@@ -51,68 +39,24 @@ export function useRecognition() {
     lastResultRef.current = text;
     lastResultTypeRef.current = type;
     tooSmallCountRef.current = 0;
-
-    // [5] Haptic feedback — мөнгө/дугаар олсон үед
-    if (type === "money") {
-      Vibration.vibrate([0, 100, 50, 100, 50, 100]); // 3x хурдан
-    } else if (type === "door") {
-      Vibration.vibrate([0, 200, 100, 200]); // 2x дунд
+    if (type === "door") {
+      Vibration.vibrate([0, 200, 100, 200]);
     } else {
-      Vibration.vibrate(100); // 1x зөөлөн
+      Vibration.vibrate(100);
     }
-
-    // [4] Мөнгө олсон бол 2 удаа хэлэх
-    if (type === "money") {
-      speech.speak(text);
-      setTimeout(() => speech.speak(text), 1500);
-    } else {
-      speech.speak(text);
-    }
+    speech.speak(text);
   }, []);
-
-  const handleMoney = useCallback(
-    (denomination: number | null) => {
-      if (denomination === null) {
-        moneyCandidateRef.current = null;
-        moneyMatchCountRef.current = 0;
-        return false;
-      }
-
-      if (denomination === moneyCandidateRef.current) {
-        moneyMatchCountRef.current += 1;
-      } else {
-        moneyCandidateRef.current = denomination;
-        moneyMatchCountRef.current = 1;
-      }
-
-      if (moneyMatchCountRef.current >= MONEY_CONSISTENCY_THRESHOLD) {
-        announce(formatMoney(denomination), "money");
-        return true;
-      }
-      return false;
-    },
-    [announce]
-  );
 
   const tick = useCallback(async () => {
     if (!cameraRef.current || busyRef.current) return;
     busyRef.current = true;
-    setIsScanning(true); // [2] Scanning indicator
-
+    setIsScanning(true);
     try {
       const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 1, shutterSound: false });
       if (!photo) return;
-
       const photoArea = photo.width * photo.height;
-
-      const hex = await sampleCenterColor(photo.uri);
-      const denomination = hex ? classifyByColor(hex) : null;
-      if (handleMoney(denomination)) return;
-
       const ocrResult = await TextRecognition.recognize(photo.uri);
       const block = selectPrimaryBlock(ocrResult.blocks);
-
-      // [6] Блок олдсон ч жижиг бол "ойртуулна уу"
       if (block?.frame && photoArea > 0) {
         const blockRatio = (block.frame.width * block.frame.height) / photoArea;
         if (blockRatio < MIN_BLOCK_RATIO && block.text?.trim()) {
@@ -121,7 +65,6 @@ export function useRecognition() {
             speech.speak("Ойртуулна уу, текст жижиг байна");
             tooSmallCountRef.current = 0;
           }
-          // [3] Сүүлийн үр дүн хадгалах
           if (lastResultRef.current) {
             setResult(lastResultRef.current);
             setResultType(lastResultTypeRef.current);
@@ -129,7 +72,6 @@ export function useRecognition() {
           return;
         }
       }
-
       const doorDetection = detectDoorNumber(block, photoArea);
       if (doorDetection) {
         announce(doorDetection, "door");
@@ -137,7 +79,6 @@ export function useRecognition() {
         announce(block.text.trim(), "text");
       } else {
         lastAnnouncedRef.current = null;
-        // [3] Юу ч олохгүй бол сүүлийн үр дүнг үлдээх
         if (lastResultRef.current) {
           setResult(lastResultRef.current);
           setResultType(lastResultTypeRef.current);
@@ -146,12 +87,12 @@ export function useRecognition() {
         }
       }
     } catch {
-      // ignore — try again on the next interval tick
+      // ignore
     } finally {
       busyRef.current = false;
       setIsScanning(false);
     }
-  }, [announce, handleMoney]);
+  }, [announce]);
 
   useEffect(() => {
     const id = setInterval(tick, SCAN_INTERVAL_MS);

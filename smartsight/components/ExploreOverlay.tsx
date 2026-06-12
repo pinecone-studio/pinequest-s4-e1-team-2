@@ -4,6 +4,7 @@ import { usePathname } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAccessibility } from "@/providers/AccesibilityProvider";
 import { playSoundFile } from "@/services/audio";
+import { speech } from "@/src/voice";
 
 const DOUBLE_TAP_MS = 350;
 const DRAG_SLOP = 12;
@@ -32,7 +33,11 @@ export function ExploreOverlay() {
       if (hit.id !== currentIdRef.current) {
         currentIdRef.current = hit.id;
         Haptics.selectionAsync();
-        void playSoundFile(hit.audioSource);
+        if (hit.audioSource) {
+          void playSoundFile(hit.audioSource);
+        } else {
+          speech.speak(hit.label);
+        }
       }
 
       return hit;

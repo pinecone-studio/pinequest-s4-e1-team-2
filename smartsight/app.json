@@ -15,7 +15,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.smartsight"
+      "bundleIdentifier": "com.anonymous.smartsight",
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "SmartSight дуут удирдлагад ашиглана.",
+        "NSMicrophoneUsageDescription": "SmartSight дуут командыг сонсоход ашиглана."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -49,7 +53,9 @@
         {
           "cameraPermission": "SmartSight камер ашиглан мөнгөн дэвсгэрт болон тоот дугаарыг таних шаардлагатай."
         }
-      ]
+      ],
+      "expo-speech-recognition",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true
