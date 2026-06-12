@@ -1,5 +1,6 @@
 import { Audio } from 'expo-av';
 import * as Speech from 'expo-speech';
+import { registerAudioStopper, stopAllAudio } from '@/services/audio';
 import { VOICE_CONFIG, CHIMEGE_VOICES, VoiceSettings, SpeakPriority } from './config';
 
 const CHIMEGE_URL = 'https://api.chimege.com/v1.2/synthesize';
@@ -32,32 +33,36 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 class SpeechManager {
   private settings: VoiceSettings | null = null;
   private sound: Audio.Sound | null = null;
+  private playToken = 0;
+
+  constructor() {
+    registerAudioStopper(this.stopSelf);
+  }
 
   configure(settings: VoiceSettings) {
     this.settings = settings;
   }
 
-  speak(text: string, priority: SpeakPriority = 'normal') {
+  async speak(text: string, priority: SpeakPriority = 'normal') {
     const s = this.settings;
     if (!s || !s.enabled || !text) return;
     if (s.mode === 'B' && priority === 'low') return;
 
-    if (priority === 'urgent') this.stopAll();
+    const token = this.playToken + 1;
+    this.playToken = token;
+    await stopAllAudio(this.stopSelf);
+    await this.stopPlayback();
+    if (token !== this.playToken) return;
 
     if (VOICE_CONFIG.chimegeToken) {
-      this.playViaChimege(text, s);
+      await this.playViaChimege(text, s, token);
     } else {
       Speech.speak(text, { rate: s.rate, language: 'mn-MN' });
     }
   }
 
-  private async playViaChimege(text: string, s: VoiceSettings) {
+  private async playViaChimege(text: string, s: VoiceSettings, token: number) {
     try {
-      if (this.sound) {
-        await this.sound.unloadAsync();
-        this.sound = null;
-      }
-
       const sanitized = sanitizeForChimege(text);
       if (!sanitized) return;
 
@@ -78,6 +83,8 @@ class SpeechManager {
       const base64 = arrayBufferToBase64(buffer);
       const uri = `data:audio/wav;base64,${base64}`;
 
+      if (token !== this.playToken) return;
+
       await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
       const { sound } = await Audio.Sound.createAsync(
         { uri },
@@ -92,20 +99,34 @@ class SpeechManager {
       });
     } catch (e) {
       console.warn('[Voice] Chimege failed, falling back to expo-speech:', e);
+      if (token !== this.playToken) return;
       Speech.speak(text, { rate: this.settings?.rate, language: 'mn-MN' });
     }
   }
 
-  private stopAll() {
+  private stopPlayback = async () => {
     if (this.sound) {
-      this.sound.unloadAsync();
+      const sound = this.sound;
       this.sound = null;
+      await sound.stopAsync().catch(() => {});
+      await sound.unloadAsync().catch(() => {});
     }
-    Speech.stop();
+    await Speech.stop();
+  };
+
+  private stopSelf = async () => {
+    this.playToken += 1;
+    await this.stopPlayback();
+  };
+
+  private async stopAll() {
+    this.playToken += 1;
+    await stopAllAudio(this.stopSelf);
+    await this.stopPlayback();
   }
 
   stop() {
-    this.stopAll();
+    void this.stopAll();
   }
 }
 

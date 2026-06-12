@@ -3,12 +3,13 @@ import { Vibration } from "react-native";
 import { CameraView } from "expo-camera";
 import TextRecognition from "@react-native-ml-kit/text-recognition";
 import { speech } from "@/src/voice";
-import { detectDoorNumber, selectPrimaryBlock } from "./classifyRecognition";
+import { detectDoorNumber, formatMoney, selectPrimaryBlock } from "./classifyRecognition";
+import { detectMoneyViaTM } from "./detectMoneyViaTM";
 
 const SCAN_INTERVAL_MS = 800;
 const MIN_BLOCK_RATIO = 0.01;
 
-export type ResultType = "door" | "text" | "scanning" | "none";
+export type ResultType = "door" | "text" | "money" | "scanning" | "none";
 
 export function useRecognition() {
   const cameraRef = useRef<CameraView>(null);
@@ -26,7 +27,7 @@ export function useRecognition() {
     if (!hasSpokenIntroRef.current) {
       hasSpokenIntroRef.current = true;
       setTimeout(() => {
-        speech.speak("Хаалганы дугаар камер руу харуулна уу");
+        speech.speak("Таних систем. Мөнгөн дэвсгэрт, хаалганы дугаар эсвэл текстээ камер руу харуулна уу");
       }, 500);
     }
   }, []);
@@ -39,12 +40,19 @@ export function useRecognition() {
     lastResultRef.current = text;
     lastResultTypeRef.current = type;
     tooSmallCountRef.current = 0;
-    if (type === "door") {
+    if (type === "money") {
+      Vibration.vibrate([0, 100, 50, 100, 50, 100]);
+    } else if (type === "door") {
       Vibration.vibrate([0, 200, 100, 200]);
     } else {
       Vibration.vibrate(100);
     }
     speech.speak(text);
+    if (type === "money") {
+      setTimeout(() => {
+        if (lastAnnouncedRef.current === text) speech.speak(text);
+      }, 1500);
+    }
   }, []);
 
   const tick = useCallback(async () => {
@@ -55,6 +63,13 @@ export function useRecognition() {
       const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 1, shutterSound: false });
       if (!photo) return;
       const photoArea = photo.width * photo.height;
+
+      const denomination = await detectMoneyViaTM(photo.uri);
+      if (denomination !== null) {
+        announce(formatMoney(denomination), "money");
+        return;
+      }
+
       const ocrResult = await TextRecognition.recognize(photo.uri);
       const block = selectPrimaryBlock(ocrResult.blocks);
       if (block?.frame && photoArea > 0) {

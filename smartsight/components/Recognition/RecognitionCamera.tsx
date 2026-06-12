@@ -22,6 +22,8 @@ function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
 function getCardStyle(type: ResultType) {
   switch (type) {
     case "door":  return styles.resultCardDoor;
+    case "money": return styles.resultCardMoney;
+    case "text":  return styles.resultCardText;
     default:      return styles.resultCard;
   }
 }
@@ -29,6 +31,7 @@ function getCardStyle(type: ResultType) {
 function getTypeLabel(type: ResultType): string {
   switch (type) {
     case "door":  return "Өрөөний дугаар";
+    case "money": return "Мөнгө";
     case "text":  return "Текст";
     default:      return "";
   }
@@ -87,6 +90,11 @@ const styles = StyleSheet.create({
   // Дугаар — цэнхэр
   resultCardDoor: {
     backgroundColor: "rgba(30,100,200,0.92)",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  resultCardMoney: {
+    backgroundColor: "rgba(34,139,34,0.92)",
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.3)",
   },
