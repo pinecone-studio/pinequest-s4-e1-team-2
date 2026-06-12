@@ -4,6 +4,7 @@ import { Screen } from "@/components/Screen";
 import { Text, View } from "react-native";
 import { Logo } from "@/components/ui-generated/_comps";
 import { Button, ss } from "@/components/ui-generated/_comps";
+import { ExploreOverlay } from "@/components/ExploreOverlay";
 const ROUTES = {
   obstacle: "/obstacle",
   money: "/money",
@@ -72,6 +73,7 @@ export function HomeScreen({
 }) {
   return (
     <Screen style={{ gap: 18 }}>
+      <ExploreOverlay />
       <Logo size={24} />
       <Text style={ss.homeHeading}>Юу хийх вэ?</Text>
       <View style={{ flex: 1, gap: 14 }}>

@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { PermissionProvider } from "../providers/usePermission";
 import { SettingsProvider } from "@/providers/SettingsProvider";
 import { AccessibilityProvider } from "@/providers/AccesibilityProvider";
-import { ExploreOverlay } from "@/components/ExploreOverlay";
 import { VoiceProvider } from "@/src/voice";
 import { VoiceControlProvider } from "@/providers/VoiceControlProvider";
 
@@ -23,7 +22,6 @@ export default function RootLayout() {
         <PermissionProvider>
           <SettingsProvider>
             <VoiceControlProvider>
-              <ExploreOverlay />
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
                 <Stack.Screen name="login" />
