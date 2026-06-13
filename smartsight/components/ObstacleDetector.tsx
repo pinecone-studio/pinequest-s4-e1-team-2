@@ -372,7 +372,6 @@ export default function ObstacleDetector() {
   const cameraReadyRef = useRef(false);
   const branchBusyRef  = useRef(false);
   const branchTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
-  const cameraBusyRef  = useRef(false);
   const router         = useRouter();
 
   // [2] Өмнөх фрэймийн bbox area хадгалах (approaching detection)
@@ -525,20 +524,27 @@ export default function ObstacleDetector() {
     } catch { /* sound not ready */ }
   }, [startParkingBeep]);
 
+  // dangerBoxes ref — detectRoboflow дотор state-г шууд хэрэглэхгүйн тулд
+  const dangerBoxesRef = useRef<BBox[]>([]);
+  dangerBoxesRef.current = dangerBoxes;
+
   // Roboflow таних: мөчир + хаалт (нэг зургаар 2 модел)
   const detectRoboflow = useCallback(async () => {
-    if (branchBusyRef.current || cameraBusyRef.current || !activeRef.current || !cameraReadyRef.current) return;
+    if (branchBusyRef.current || !activeRef.current || !cameraReadyRef.current) return;
     if (!cameraRef.current || !ROBOFLOW_API_KEY) return;
 
     branchBusyRef.current = true;
-    cameraBusyRef.current = true;
+    console.log('[Roboflow] detect эхэлж байна...');
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.4, base64: true, shutterSound: false });
-      cameraBusyRef.current = false;
-      if (!photo?.base64) return;
+      if (!photo?.base64) {
+        console.log('[Roboflow] зураг авч чадсангүй');
+        return;
+      }
+      console.log('[Roboflow] зураг авлаа, API руу илгээж байна...');
 
       const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
-      const skipBranch = dangerBoxes.some(b => b.classId === 0); // Хүн байвал мөчир алгасна
+      const skipBranch = dangerBoxesRef.current.some(b => b.classId === 0); // Хүн байвал мөчир алгасна
 
       const [branchRes, barrierRes] = await Promise.allSettled([
         skipBranch
@@ -567,8 +573,9 @@ export default function ObstacleDetector() {
       if (barrierRes.status === 'fulfilled' && barrierRes.value) {
         const allBarriers = barrierRes.value.predictions ?? [];
         const barriers = allBarriers.filter((p: any) => p.confidence >= BARRIER_CONF_THRESHOLD);
+        console.log(`[Roboflow] хаалт хариу: ${allBarriers.length} prediction, confidence: ${allBarriers.map((p: any) => p.confidence?.toFixed(2)).join(', ') || 'юу ч олдсонгүй'}`);
         if (allBarriers.length > 0) {
-          console.log(`[ObstacleDetector] хаалт confidence: ${allBarriers.map((p: any) => p.confidence?.toFixed(2)).join(', ')}`);
+          console.log(`[Roboflow] хаалт нэрс: ${allBarriers.map((p: any) => `${p.class}(${p.confidence?.toFixed(2)})`).join(', ')}`);
         }
         setBarrierDetected(barriers.length > 0);
         if (barriers.length > 0) {
@@ -576,25 +583,23 @@ export default function ObstacleDetector() {
           Vibration.vibrate([0, 300, 100, 300]);
         }
       } else {
+        console.log(`[Roboflow] хаалт API алдаа: ${barrierRes.status === 'rejected' ? barrierRes.reason : 'null хариу'}`);
         setBarrierDetected(false);
       }
     } catch (err) {
-      console.warn('[ObstacleDetector] roboflow detect алдаа:', err);
+      console.warn('[Roboflow] detect алдаа:', err);
     } finally {
       branchBusyRef.current = false;
-      cameraBusyRef.current = false;
     }
-  }, [dangerBoxes]);
+  }, []);
 
   const detect = useCallback(async () => {
-    if (busyRef.current || cameraBusyRef.current || !activeRef.current || !cameraReadyRef.current) return;
+    if (busyRef.current || !activeRef.current || !cameraReadyRef.current) return;
     if (!cameraRef.current || !modelRef.current) return;
 
     busyRef.current = true;
-    cameraBusyRef.current = true;
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, shutterSound: false });
-      cameraBusyRef.current = false;
       if (!photo) return;
 
       const tensor = await imageUriToTensor(photo.uri);
@@ -625,7 +630,6 @@ export default function ObstacleDetector() {
       else console.error('[ObstacleDetector] detect алдаа:', err);
     } finally {
       busyRef.current = false;
-      cameraBusyRef.current = false;
     }
   }, [triggerAlert, isDangerous, stopParkingBeep]);
 

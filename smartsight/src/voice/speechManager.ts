@@ -8,7 +8,7 @@ const CHIMEGE_URL = 'https://api.chimege.com/v1.2/synthesize';
 function sanitizeForChimege(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[^Ѐ-ӿ\s?!.,\-'"]/g, ' ')
+    .replace(/[^Ѐ-ӿ0-9a-zA-Z\s?!.,\-'"]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 300);
