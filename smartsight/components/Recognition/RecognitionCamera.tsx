@@ -1,5 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { ActivityIndicator, StyleSheet, TouchableOpacity } from "react-native";
+import { ActivityIndicator, Linking, StyleSheet, TouchableOpacity } from "react-native";
+import { useEffect } from "react";
 import { Text, View } from "@/components/Themed";
 import { useRouter } from "expo-router";
 import { useRecognition, type ResultType } from "./useRecognition";
@@ -7,6 +8,7 @@ import { useRecognition, type ResultType } from "./useRecognition";
 function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
   return (
     <View style={styles.center}>
+      <Text style={styles.permissionText}>Камерын зөвшөөрөл шаардлагатай</Text>
       <TouchableOpacity
         style={styles.button}
         onPress={onRequest}
@@ -42,6 +44,21 @@ export default function RecognitionCamera() {
   const { cameraRef, result, resultType, isScanning } = useRecognition();
   const router = useRouter();
 
+  // Зөвшөөрлийг автоматаар асууна
+  useEffect(() => {
+    if (permission && !permission.granted && permission.canAskAgain) {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
+
+  const handleRequest = async () => {
+    const res = await requestPermission();
+    // "Дахиж бүү асуу" гэж татгалзсан бол OS дахиж асуухгүй — Тохиргоо руу оруулна
+    if (!res.granted && !res.canAskAgain) {
+      Linking.openSettings();
+    }
+  };
+
   if (permission === null) {
     return (
       <View style={styles.center}>
@@ -51,7 +68,7 @@ export default function RecognitionCamera() {
   }
 
   if (!permission.granted) {
-    return <PermissionPrompt onRequest={requestPermission} />;
+    return <PermissionPrompt onRequest={handleRequest} />;
   }
 
   return (
@@ -140,6 +157,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonText: { color: "#fff", fontSize: 24, fontWeight: "bold" },
+  permissionText: { color: "#fff", fontSize: 18, textAlign: "center", marginHorizontal: 24, marginBottom: 8 },
   backBtn: {
     position: "absolute", top: 50, left: 20,
     backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,

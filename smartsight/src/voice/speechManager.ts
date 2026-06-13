@@ -5,10 +5,50 @@ import { VOICE_CONFIG, CHIMEGE_VOICES, VoiceSettings, SpeakPriority } from './co
 
 const CHIMEGE_URL = 'https://api.chimege.com/v1.2/synthesize';
 
+// Chimege нь ТОО хүлээж авдаггүй (зөвхөн кирилл). Тоог монгол үг болгож хөрвүүлнэ.
+const MN_ONES = ['', 'нэг', 'хоёр', 'гурван', 'дөрвөн', 'таван', 'зургаан', 'долоон', 'найман', 'есөн'];
+const MN_ONES_FINAL = ['', 'нэг', 'хоёр', 'гурав', 'дөрөв', 'тав', 'зургаа', 'долоо', 'найм', 'ес'];
+const MN_TENS = ['', 'арван', 'хорин', 'гучин', 'дөчин', 'тавин', 'жаран', 'далан', 'наян', 'ерэн'];
+const MN_TENS_FINAL = ['', 'арав', 'хорь', 'гуч', 'дөч', 'тавь', 'жар', 'дал', 'ная', 'ер'];
+
+function mnNumber(n: number): string {
+  if (!Number.isFinite(n) || n < 0) return '';
+  if (n === 0) return 'тэг';
+  if (n > 99999) return String(n); // дэмжихгүй хязгаар
+  const parts: string[] = [];
+  let rem = n;
+
+  const thousands = Math.floor(rem / 1000);
+  rem = rem % 1000;
+  if (thousands > 0) {
+    const tT = Math.floor(thousands / 10);
+    const tO = thousands % 10;
+    if (tT > 0) parts.push(MN_TENS[tT]);
+    if (tO > 0) parts.push(MN_ONES[tO]);
+    parts.push(rem > 0 ? 'мянган' : 'мянга');
+  }
+
+  const hundreds = Math.floor(rem / 100);
+  rem = rem % 100;
+  if (hundreds > 0) {
+    parts.push(MN_ONES[hundreds]);
+    parts.push(rem > 0 ? 'зуун' : 'зуу');
+  }
+
+  const t = Math.floor(rem / 10);
+  const o = rem % 10;
+  if (t > 0) parts.push(o > 0 ? MN_TENS[t] : MN_TENS_FINAL[t]);
+  if (o > 0) parts.push(MN_ONES_FINAL[o]);
+
+  return parts.join(' ');
+}
+
 function sanitizeForChimege(text: string): string {
   return text
+    // Таслалтай (10,000) болон энгийн тоог монгол үг болгоно
+    .replace(/\d[\d,]*\d|\d/g, (m) => mnNumber(parseInt(m.replace(/,/g, ''), 10)))
     .toLowerCase()
-    .replace(/[^Ѐ-ӿ0-9a-zA-Z\s?!.,\-'"]/g, ' ')
+    .replace(/[^Ѐ-ӿ\s?!.,\-'":]/g, ' ') // тоо/латин үсгийг хасна (Chimege зөвшөөрдөггүй)
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 300);
