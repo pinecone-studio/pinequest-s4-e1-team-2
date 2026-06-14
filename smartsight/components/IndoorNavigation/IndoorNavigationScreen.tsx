@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { router } from "expo-router";
 
 import navigationData from "@/assets/floorplans/gurvan-gol-floor-3.navigation.json";
 import {
@@ -103,7 +104,15 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
     if (!selectedRoom || instructions.length === 0) return;
     const dist = distanceMeters != null ? `${distanceMeters}м` : '';
     speak(`${selectedRoom.name} хүртэл ${dist}. ${instructions.join('. ')}`);
-  }, [instructions]);
+  }, [distanceMeters, instructions, selectedRoom, speak]);
+
+  const startRoomRecognition = () => {
+    if (!selectedRoom) return;
+    router.push({
+      pathname: "/recognize",
+      params: { targetRoom: selectedRoom.name },
+    });
+  };
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 18 }}>
@@ -174,6 +183,9 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
             {selectedRoom.name} хүртэл {distanceMeters}м
           </Text>
           <RouteInstructions instructions={instructions} />
+          <TouchableOpacity style={styles.primaryButton} onPress={startRoomRecognition}>
+            <Text style={styles.primaryButtonText}>Өрөө таних эхлүүлэх</Text>
+          </TouchableOpacity>
         </View>
       ) : null}
     </ScrollView>

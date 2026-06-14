@@ -39,9 +39,15 @@ function getTypeLabel(type: ResultType): string {
   }
 }
 
-export default function RecognitionCamera() {
+export default function RecognitionCamera({
+  targetDoorNumber,
+}: {
+  targetDoorNumber?: string;
+}) {
   const [permission, requestPermission] = useCameraPermissions();
-  const { cameraRef, result, resultType, isScanning } = useRecognition();
+  const { cameraRef, result, resultType, isScanning } = useRecognition({
+    targetDoorNumber,
+  });
   const router = useRouter();
 
   // Зөвшөөрлийг автоматаар асууна
@@ -75,6 +81,12 @@ export default function RecognitionCamera() {
     <View style={styles.container}>
       <CameraView ref={cameraRef} style={styles.camera} autofocus="on" />
 
+      {targetDoorNumber ? (
+        <View style={styles.targetBadge}>
+          <Text style={styles.targetBadgeText}>{targetDoorNumber} тоот өрөө хайж байна</Text>
+        </View>
+      ) : null}
+
       {/* [2] Scanning indicator */}
       {isScanning && !result && (
         <View style={styles.scanningBadge}>
@@ -104,6 +116,23 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
   camera: { flex: 1 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  targetBadge: {
+    position: "absolute",
+    top: 96,
+    left: 16,
+    right: 16,
+    backgroundColor: "rgba(30,100,200,0.92)",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  targetBadgeText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
 
   resultCard: {
     position: "absolute", bottom: 80, left: 16, right: 16,
@@ -140,7 +169,7 @@ const styles = StyleSheet.create({
 
   // [2] Scanning indicator
   scanningBadge: {
-    position: "absolute", top: 100, alignSelf: "center",
+    position: "absolute", top: 150, alignSelf: "center",
     flexDirection: "row", alignItems: "center", gap: 8,
     backgroundColor: "rgba(0,0,0,0.6)",
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,

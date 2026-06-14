@@ -35,6 +35,17 @@ function extractDoorNumbers(blocks: TextBlockLike[]): DoorNum[] {
   return found;
 }
 
+export function detectDoorNumberValues(blocks: TextBlockLike[]): string[] {
+  const byValue = new Map<string, DoorNum>();
+  for (const n of extractDoorNumbers(blocks)) {
+    const prev = byValue.get(n.value);
+    if (!prev || n.area > prev.area) byValue.set(n.value, n);
+  }
+  return Array.from(byValue.values())
+    .sort((a, b) => a.centerX - b.centerX)
+    .map((n) => n.value);
+}
+
 export function detectDoorNumbers(blocks: TextBlockLike[], photoWidth: number): string | null {
   const nums = extractDoorNumbers(blocks);
   if (nums.length === 0) return null;
