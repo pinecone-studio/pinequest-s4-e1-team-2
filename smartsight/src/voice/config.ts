@@ -17,6 +17,12 @@ export const CHIMEGE_VOICES: Record<VoiceGender, string> = {
 
 export const VOICE_CONFIG = {
   chimegeToken: process.env.EXPO_PUBLIC_CHIMEGE_TOKEN ?? '',
+  // Chimege нь үйлчилгээ бүрт ТУСДАА токен өгдөг. STT-д тусдаа токен байвал
+  // түүнийг, эс бөгөөс TTS токеноо ашиглана (заримдаа нэг токен 2-уланд ажилладаг).
+  chimegeSttToken:
+    process.env.EXPO_PUBLIC_CHIMEGE_STT_TOKEN ??
+    process.env.EXPO_PUBLIC_CHIMEGE_TOKEN ??
+    '',
 };
 
 export const DEFAULT_SETTINGS: VoiceSettings = {

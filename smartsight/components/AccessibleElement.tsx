@@ -11,6 +11,9 @@ interface AccessibleElementProps {
   audioSource?: AVPlaybackSource;
   onActivate?: () => void;   // Called on activate (double-tap)
   style?: StyleProp<ViewStyle>;  // Applied to the wrapper (e.g. absolute positioning)
+  // useIsFocused-г үл тоомсорлоно — дэлгэцийн ГАДУУР (ж: provider) рендэрлэгддэг
+  // элементэд хэрэгтэй (тэнд isFocused false болж бүртгэгддэггүй).
+  ignoreFocus?: boolean;
   children: React.ReactNode;
 }
 
@@ -20,6 +23,7 @@ export function AccessibleElement({
   audioSource,
   onActivate,
   style,
+  ignoreFocus = false,
   children,
 }: AccessibleElementProps) {
   const ref = useRef<View>(null);
@@ -40,7 +44,7 @@ export function AccessibleElement({
 
   // Зөвхөн жинхэнэ тогтвортой утгуудаас хамаарна → re-render бүрт өөрчлөгдөхгүй
   const measure = useCallback(() => {
-    if (!isFocused) {
+    if (!ignoreFocus && !isFocused) {
       unregister(id);
       return;
     }
@@ -57,7 +61,7 @@ export function AccessibleElement({
         );
       }
     });
-  }, [id, isFocused, pathname, register, unregister]);
+  }, [id, isFocused, ignoreFocus, pathname, register, unregister]);
 
   useEffect(() => {
     const timer = setTimeout(measure, 150);

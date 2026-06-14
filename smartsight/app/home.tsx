@@ -62,7 +62,7 @@ export function HomeScreen({
   onNav: (id: FeatureId) => void;
 }) {
   return (
-    <Screen style={{ gap: 18 }}>
+    <Screen style={{ gap: 18, paddingTop: 64 }}>
       <Logo size={24} />
       <Text style={ss.homeHeading}>Юу хийх вэ?</Text>
       <View style={{ flex: 1, gap: 14 }}>

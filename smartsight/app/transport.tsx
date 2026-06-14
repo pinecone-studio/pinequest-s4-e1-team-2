@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { BackButton } from "@/components/ui-generated/_comps";
+import { Button } from "@/components/ui-generated/_comps";
 import { AccessibleElement } from "@/components/AccessibleElement";
 import { useAccessibility } from "@/providers/AccesibilityProvider";
 
@@ -35,8 +35,6 @@ export default function TransportScreen() {
 
   return (
     <View style={s.root}>
-      <BackButton onBack={() => router.back()} style={s.backBtn} />
-
       <Text style={s.title}>Зам тээвэр</Text>
 
       <View style={s.list}>
@@ -65,6 +63,15 @@ export default function TransportScreen() {
           );
         })}
       </View>
+
+      <View style={{ flex: 1 }} />
+
+      <Button
+        label="Буцах"
+        height={88}
+        audioSource={require("@/assets/haptics/backbtn.mp3")}
+        onPress={() => router.back()}
+      />
     </View>
   );
 }
@@ -72,9 +79,10 @@ export default function TransportScreen() {
 const s = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#fff",
     paddingTop: 60,
     paddingHorizontal: 20,
+    paddingBottom: 24,
   },
   backBtn: {
     position: "absolute",
@@ -87,7 +95,7 @@ const s = StyleSheet.create({
     borderRadius: 10,
   },
   title: {
-    color: "#fff",
+    color: "#0A0A0A",
     fontSize: 28,
     fontWeight: "bold",
     textAlign: "center",
@@ -96,7 +104,7 @@ const s = StyleSheet.create({
   },
   list: { gap: 16 },
   card: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "#111",
     borderRadius: 16,
     padding: 24,
     borderWidth: 1,

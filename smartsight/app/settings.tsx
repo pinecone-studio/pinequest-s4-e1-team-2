@@ -139,7 +139,7 @@ export default function SettingsScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0a0a0a", paddingTop: 64 },
+  root: { flex: 1, backgroundColor: "#fff", paddingTop: 64 },
 
   row: {
     flexDirection: "row",
@@ -147,9 +147,9 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 24,
     minHeight: 72,
-    backgroundColor: "#1c1c1e",
+    backgroundColor: "#F2F2F7",
   },
-  rowLabel: { color: "#fff", fontSize: 20, fontWeight: "600" },
+  rowLabel: { color: "#0A0A0A", fontSize: 20, fontWeight: "600" },
 
   divider: { height: 28 },
 
@@ -167,13 +167,13 @@ const s = StyleSheet.create({
     flex: 1,
     minHeight: 72,
     borderRadius: 16,
-    backgroundColor: "#1c1c1e",
+    backgroundColor: "#F2F2F7",
     alignItems: "center",
     justifyContent: "center",
   },
-  segActive: { backgroundColor: "#fff" },
-  segText: { color: "#fff", fontSize: 20, fontWeight: "600" },
-  segTextActive: { color: "#000" },
+  segActive: { backgroundColor: "#0A0A0A" },
+  segText: { color: "#0A0A0A", fontSize: 20, fontWeight: "600" },
+  segTextActive: { color: "#fff" },
 
   rateRow: {
     flexDirection: "row",
@@ -185,12 +185,12 @@ const s = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "#1c1c1e",
+    backgroundColor: "#F2F2F7",
     alignItems: "center",
     justifyContent: "center",
   },
   rateBtnText: {
-    color: "#fff",
+    color: "#0A0A0A",
     fontSize: 40,
     fontWeight: "200",
     lineHeight: 46,
@@ -202,7 +202,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
     gap: 4,
   },
-  rateVal: { color: "#fff", fontSize: 56, fontWeight: "700" },
+  rateVal: { color: "#0A0A0A", fontSize: 56, fontWeight: "700" },
   rateUnit: { color: "#888", fontSize: 26 },
   rangeLabelRow: {
     flexDirection: "row",
