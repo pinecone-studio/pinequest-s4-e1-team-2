@@ -21,7 +21,7 @@ export const VOICE_CONFIG = {
 
 export const DEFAULT_SETTINGS: VoiceSettings = {
   enabled: true,
-  gender: 'male',
+  gender: 'female',
   rate: 1.0,
   volume: 1.0,
   mode: 'A',

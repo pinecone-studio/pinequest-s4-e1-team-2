@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
+import { BackButton } from "@/components/ui-generated/_comps";
 
 const ROBOFLOW_API_KEY = process.env.EXPO_PUBLIC_ROBOFLOW_API_KEY;
 const MODEL_ID = "tree-branch-detection-jemc7/1";
@@ -76,9 +77,7 @@ export default function TreeDetectScreen() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-        <Text style={styles.backText}>{"< Буцах"}</Text>
-      </TouchableOpacity>
+      <BackButton onBack={() => router.back()} style={styles.backBtn} label="< Буцах" />
 
       {!photo ? (
         <View style={{ flex: 1 }}>

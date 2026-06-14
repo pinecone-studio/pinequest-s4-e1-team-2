@@ -1,22 +1,27 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect } from "react";
+import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { useRouter } from "expo-router";
 
-import { useVoice, Strings } from '@/src/voice';
+import { useVoice, Strings } from "@/src/voice";
+import { Button } from "@/components/ui-generated/_comps";
 
 export default function SettingsScreen() {
   const { settings, setSettings, speak, vibrate } = useVoice();
+  const router = useRouter();
 
   useEffect(() => {
     speak(Strings.settings.opened);
   }, [speak]);
 
   const toggleGender = () => {
-    const next = settings.gender === 'male' ? 'female' : 'male';
+    const next = settings.gender === "male" ? "female" : "male";
     setSettings({ gender: next });
     vibrate.tap();
     speak(
-      next === 'male' ? Strings.settings.genderMale : Strings.settings.genderFemale,
-      'urgent',
+      next === "male"
+        ? Strings.settings.genderMale
+        : Strings.settings.genderFemale,
+      "urgent",
     );
   };
 
@@ -26,14 +31,14 @@ export default function SettingsScreen() {
     if (next === settings.rate) return;
     setSettings({ rate: next });
     vibrate.tap();
-    speak(Strings.settings.rateChanged(next), 'urgent');
+    speak(Strings.settings.rateChanged(next), "urgent");
   };
 
   const toggleEnabled = () => {
     const next = !settings.enabled;
     setSettings({ enabled: next });
     vibrate.tap();
-    if (next) setTimeout(() => speak(Strings.settings.voiceOn, 'urgent'), 80);
+    if (next) setTimeout(() => speak(Strings.settings.voiceOn, "urgent"), 80);
   };
 
   return (
@@ -43,14 +48,15 @@ export default function SettingsScreen() {
         style={s.row}
         accessible
         accessibilityRole="switch"
-        accessibilityLabel={`Дуу хоолой, ${settings.enabled ? 'асаалттай' : 'унтраалттай'}`}
+        accessibilityLabel={`Дуу хоолой, ${settings.enabled ? "асаалттай" : "унтраалттай"}`}
       >
         <Text style={s.rowLabel}>Дуу хоолой</Text>
         <Switch
           value={settings.enabled}
           onValueChange={toggleEnabled}
           thumbColor="#fff"
-          trackColor={{ false: '#444', true: '#34C759' }}
+          trackColor={{ false: "#444", true: "#34C759" }}
+          style={{ marginTop: 23 }}
         />
       </View>
 
@@ -60,24 +66,28 @@ export default function SettingsScreen() {
       <Text style={s.section}>ХООЛОЙН ХҮЙС</Text>
       <View style={s.segRow}>
         <TouchableOpacity
-          style={[s.seg, settings.gender === 'male' && s.segActive]}
-          onPress={() => settings.gender !== 'male' && toggleGender()}
+          style={[s.seg, settings.gender === "male" && s.segActive]}
+          onPress={() => settings.gender !== "male" && toggleGender()}
           accessibilityRole="radio"
-          accessibilityState={{ checked: settings.gender === 'male' }}
+          accessibilityState={{ checked: settings.gender === "male" }}
           accessibilityLabel="Эрэгтэй хоолой"
         >
-          <Text style={[s.segText, settings.gender === 'male' && s.segTextActive]}>
+          <Text
+            style={[s.segText, settings.gender === "male" && s.segTextActive]}
+          >
             Эрэгтэй
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[s.seg, settings.gender === 'female' && s.segActive]}
-          onPress={() => settings.gender !== 'female' && toggleGender()}
+          style={[s.seg, settings.gender === "female" && s.segActive]}
+          onPress={() => settings.gender !== "female" && toggleGender()}
           accessibilityRole="radio"
-          accessibilityState={{ checked: settings.gender === 'female' }}
+          accessibilityState={{ checked: settings.gender === "female" }}
           accessibilityLabel="Эмэгтэй хоолой"
         >
-          <Text style={[s.segText, settings.gender === 'female' && s.segTextActive]}>
+          <Text
+            style={[s.segText, settings.gender === "female" && s.segTextActive]}
+          >
             Эмэгтэй
           </Text>
         </TouchableOpacity>
@@ -113,50 +123,61 @@ export default function SettingsScreen() {
         <Text style={s.rangeLabel}>0.5x (удаан)</Text>
         <Text style={s.rangeLabel}>2.0x (хурдан)</Text>
       </View>
+
+      <View style={{ flex: 1 }} />
+
+      <View style={{ paddingHorizontal: 24, paddingBottom: 40 }}>
+        <Button
+          label="Буцах"
+          height={88}
+          audioSource={require("@/assets/haptics/backbtn.mp3")}
+          onPress={() => router.back()}
+        />
+      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0a0a0a' },
+  root: { flex: 1, backgroundColor: "#0a0a0a", paddingTop: 64 },
 
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 24,
     minHeight: 72,
-    backgroundColor: '#1c1c1e',
+    backgroundColor: "#1c1c1e",
   },
-  rowLabel: { color: '#fff', fontSize: 20, fontWeight: '600' },
+  rowLabel: { color: "#fff", fontSize: 20, fontWeight: "600" },
 
   divider: { height: 28 },
 
   section: {
-    color: '#888',
+    color: "#888",
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.8,
     paddingHorizontal: 24,
     marginBottom: 14,
   },
 
-  segRow: { flexDirection: 'row', paddingHorizontal: 24, gap: 12 },
+  segRow: { flexDirection: "row", paddingHorizontal: 24, gap: 12 },
   seg: {
     flex: 1,
     minHeight: 72,
     borderRadius: 16,
-    backgroundColor: '#1c1c1e',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#1c1c1e",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  segActive: { backgroundColor: '#fff' },
-  segText: { color: '#fff', fontSize: 20, fontWeight: '600' },
-  segTextActive: { color: '#000' },
+  segActive: { backgroundColor: "#fff" },
+  segText: { color: "#fff", fontSize: 20, fontWeight: "600" },
+  segTextActive: { color: "#000" },
 
   rateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 24,
     gap: 16,
   },
@@ -164,25 +185,30 @@ const s = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#1c1c1e',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#1c1c1e",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  rateBtnText: { color: '#fff', fontSize: 40, fontWeight: '200', lineHeight: 46 },
+  rateBtnText: {
+    color: "#fff",
+    fontSize: 40,
+    fontWeight: "200",
+    lineHeight: 46,
+  },
   rateCenter: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "center",
     gap: 4,
   },
-  rateVal: { color: '#fff', fontSize: 56, fontWeight: '700' },
-  rateUnit: { color: '#888', fontSize: 26 },
+  rateVal: { color: "#fff", fontSize: 56, fontWeight: "700" },
+  rateUnit: { color: "#888", fontSize: 26 },
   rangeLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingHorizontal: 24,
     marginTop: 10,
   },
-  rangeLabel: { color: '#555', fontSize: 13 },
+  rangeLabel: { color: "#555", fontSize: 13 },
 });

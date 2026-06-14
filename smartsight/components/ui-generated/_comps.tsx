@@ -12,6 +12,8 @@ import {
   Animated,
   Dimensions,
   Platform,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -240,6 +242,48 @@ export function BackRow({ onBack }: { onBack: () => void }) {
     <TouchableOpacity onPress={onBack} style={ss.backRow}>
       <Text style={ss.backLabel}>Буцах</Text>
     </TouchableOpacity>
+  );
+}
+
+// Хүртээмжтэй Буцах товч — explore-by-touch + 2 дарж ажиллана, бичигдсэн "Буцах" дуутай.
+// `style`-аар дэлгэц бүрийн байрлалыг (ихэвчлэн absolute) дамжуулна.
+const BACK_AUDIO = require("@/assets/haptics/backbtn.mp3");
+
+export function BackButton({
+  onBack,
+  style,
+  label = "Буцах",
+}: {
+  onBack: () => void;
+  style?: StyleProp<ViewStyle>;
+  label?: string;
+}) {
+  const rawId = React.useId().replace(/:/g, "-");
+  const accessibleId = `back-${rawId}`;
+  const { activeElementId } = useAccessibility();
+  const highlighted = activeElementId === accessibleId;
+
+  return (
+    <AccessibleElement
+      id={accessibleId}
+      label="Буцах"
+      audioSource={BACK_AUDIO}
+      onActivate={onBack}
+      style={style}
+    >
+      <TouchableOpacity
+        onPress={onBack}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel="Буцах"
+        style={[
+          ss.backBtnBox,
+          highlighted && { borderColor: "#45FFF7", borderWidth: 2 },
+        ]}
+      >
+        <Text style={ss.backBtnLabel}>{label}</Text>
+      </TouchableOpacity>
+    </AccessibleElement>
   );
 }
 
@@ -653,13 +697,16 @@ const LOC = {
 export function LocationScreen({ onBack }: { onBack: () => void }) {
   const { addressText, errorMessage, handleGetLocation, loading } =
     useSelfLocationTracker();
+
+  // Дэлгэц нээгдмэгц шууд байршлаа авч уншина (нэмэлт товч дарах шаардлагагүй)
+  useEffect(() => {
+    handleGetLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <Screen style={{ gap: 16 }}>
-      <TopBar title="Байршил" onBack={onBack} />
-      {/* Map placeholder — swap with react-native-maps MapView in real app */}
-      {/* <View style={ss.mapThumb}>
-        <Text style={ss.mapLabel}>ГАЗРЫН ЗУРАГ</Text>
-      </View> */}
+    <Screen style={{ gap: 16, paddingTop: 64 }}>
+      <Text style={ss.topBarTitle}>Байршил</Text>
       <View style={{ minHeight: 140 }}>
         {loading || (!addressText && !errorMessage) ? (
           <Text style={ss.locHint}>
@@ -676,6 +723,12 @@ export function LocationScreen({ onBack }: { onBack: () => void }) {
         label={addressText ? "Давтах" : "Байршлаа мэдэх"}
         height={92}
         onPress={handleGetLocation}
+      />
+      <Button
+        label="Буцах"
+        height={92}
+        audioSource={require("@/assets/haptics/backbtn.mp3")}
+        onPress={onBack}
       />
     </Screen>
   );
@@ -773,6 +826,16 @@ export const ss = StyleSheet.create({
     marginBottom: 4,
   },
   backLabel: { fontSize: 17, fontWeight: "600", color: T.muted },
+  // accessible back button (used app-wide via <BackButton/>)
+  backBtnBox: {
+    alignSelf: "flex-start",
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    borderColor: "transparent",
+    borderWidth: 2,
+  },
+  backBtnLabel: { color: "#fff", fontSize: 16, fontWeight: "600" },
   // top bar
   topBar: { flexDirection: "row", alignItems: "center", gap: 10 },
   topBarBack: {

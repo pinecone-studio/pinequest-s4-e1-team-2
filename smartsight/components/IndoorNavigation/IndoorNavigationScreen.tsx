@@ -1,5 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router } from "expo-router";
 
@@ -14,6 +21,8 @@ import {
 } from "@/services/indoor-navigation";
 
 import { useVoice } from "@/src/voice";
+import { useAccessibility } from "@/providers/AccesibilityProvider";
+import { Button } from "@/components/ui-generated/_comps";
 import { DestinationPicker } from "./DestinationPicker";
 import { RouteInstructions } from "./RouteInstructions";
 
@@ -43,10 +52,40 @@ function getAnchorDisplayName(anchor: QrAnchor) {
 
 export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [selectVersion, setSelectVersion] = useState(0);
   const [startAnchor, setStartAnchor] = useState<QrAnchor | null>(null);
   const [scanError, setScanError] = useState("");
   const [permission, requestPermission] = useCameraPermissions();
   const { speak } = useVoice();
+  const { setScroller, remeasureAll } = useAccessibility();
+  const scrollRef = useRef<ScrollView>(null);
+  const offsetRef = useRef(0);
+
+  // ExploreOverlay-ийн 2 хурууны scroll-ийг энэ ScrollView рүү холбоно
+  useEffect(() => {
+    setScroller((dy) => {
+      const next = Math.max(0, offsetRef.current + dy);
+      offsetRef.current = next;
+      scrollRef.current?.scrollTo({ y: next, animated: false });
+    });
+    return () => setScroller(null);
+  }, [setScroller]);
+
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    offsetRef.current = e.nativeEvent.contentOffset.y;
+    // Scroll хийх бүрт бүртгэгдсэн байрлалуудыг шинэчилнэ (stale координат засна)
+    remeasureAll();
+  };
+
+  // QR уншсаны/өрөө сонгосны дараа камер задарч layout огцом шилждэг.
+  // Layout суусны дараа бүх элементийг дахин хэмжиж зөв байрлалд бүртгэнэ.
+  useEffect(() => {
+    const timers = [
+      setTimeout(remeasureAll, 250),
+      setTimeout(remeasureAll, 600),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [startAnchor, selectedRoom, remeasureAll]);
 
   const handleQrScanned = ({ data: rawData }: { data: string }) => {
     if (startAnchor) return;
@@ -64,7 +103,9 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
         return;
       }
 
-      const anchor = data.qrAnchors.find((item) => item.id === payload.anchorId);
+      const anchor = data.qrAnchors.find(
+        (item) => item.id === payload.anchorId,
+      );
 
       if (!anchor) {
         setScanError("QR цэг navigation data дотор олдсонгүй.");
@@ -97,14 +138,21 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
   );
   const distanceMeters =
     startAnchor?.id === "qr_1" && selectedRoom
-      ? QR1_ROUTE_DISTANCE_METERS[selectedRoom.id] ?? route?.distanceMeters
+      ? (QR1_ROUTE_DISTANCE_METERS[selectedRoom.id] ?? route?.distanceMeters)
       : route?.distanceMeters;
+
+  // Өрөө сонгох болгонд (ижил өрөө дахин сонгосон ч selectVersion-оор) зааврыг дуудна
+  const handleSelectRoom = (room: Room) => {
+    setSelectedRoom(room);
+    setSelectVersion((v) => v + 1);
+  };
 
   useEffect(() => {
     if (!selectedRoom || instructions.length === 0) return;
-    const dist = distanceMeters != null ? `${distanceMeters}м` : '';
-    speak(`${selectedRoom.name} хүртэл ${dist}. ${instructions.join('. ')}`);
-  }, [distanceMeters, instructions, selectedRoom, speak]);
+    // Нийт зайг хэлэлгүй зөвхөн алхам алхмаар зааврыг уншина
+    speak(instructions.join(". "));
+    // selectVersion-ийг dep-д оруулснаар ижил өрөө дахин сонгоход дахин уншина
+  }, [selectVersion, instructions, selectedRoom, speak]);
 
   const startRoomRecognition = () => {
     if (!selectedRoom) return;
@@ -115,13 +163,17 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20, gap: 18 }}>
-      <TouchableOpacity onPress={onBack} style={{ alignSelf: "flex-start" }}>
-        <Text style={{ color: "#666", fontSize: 17, fontWeight: "600" }}>
-          Буцах
-        </Text>
-      </TouchableOpacity>
-
+    <ScrollView
+      ref={scrollRef}
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
+      contentContainerStyle={{
+        paddingHorizontal: 20,
+        paddingTop: 64,
+        paddingBottom: 96,
+        gap: 18,
+      }}
+    >
       <Text style={{ fontSize: 28, fontWeight: "700" }}>Өрөө хайх</Text>
 
       {!startAnchor ? (
@@ -137,9 +189,11 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
               <Text style={{ fontSize: 16 }}>
                 QR уншуулахад камерын зөвшөөрөл хэрэгтэй.
               </Text>
-              <TouchableOpacity style={styles.primaryButton} onPress={requestPermission}>
-                <Text style={styles.primaryButtonText}>Камер зөвшөөрөх</Text>
-              </TouchableOpacity>
+              <Button
+                label="Камер зөвшөөрөх"
+                height={84}
+                onPress={requestPermission}
+              />
             </View>
           ) : (
             <View style={styles.cameraBox}>
@@ -161,33 +215,27 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
             Барилгын нэр: {data.buildingName} · {data.floor} давхар ·{" "}
             {getAnchorDisplayName(startAnchor)}
           </Text>
-          <TouchableOpacity
-            style={styles.secondaryButton}
+          <Button
+            label="QR дахин уншуулах"
+            height={84}
             onPress={() => {
               setSelectedRoom(null);
               setStartAnchor(null);
             }}
-          >
-            <Text style={styles.secondaryButtonText}>QR дахин уншуулах</Text>
-          </TouchableOpacity>
+          />
         </View>
       )}
 
       {startAnchor ? (
-        <DestinationPicker rooms={data.rooms} onSelect={setSelectedRoom} />
+        <DestinationPicker rooms={data.rooms} onSelect={handleSelectRoom} />
       ) : null}
 
-      {selectedRoom && route ? (
-        <View style={{ gap: 12 }}>
-          <Text style={{ fontSize: 22, fontWeight: "700" }}>
-            {selectedRoom.name} хүртэл {distanceMeters}м
-          </Text>
-          <RouteInstructions instructions={instructions} />
-          <TouchableOpacity style={styles.primaryButton} onPress={startRoomRecognition}>
-            <Text style={styles.primaryButtonText}>Өрөө таних эхлүүлэх</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
+      <Button
+        label="Буцах"
+        height={88}
+        audioSource={require("@/assets/haptics/backbtn.mp3")}
+        onPress={onBack}
+      />
     </ScrollView>
   );
 }
@@ -213,32 +261,6 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#fff",
     borderRadius: 18,
-  },
-  primaryButton: {
-    minHeight: 64,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 14,
-    backgroundColor: "#111",
-    paddingHorizontal: 18,
-  },
-  primaryButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  secondaryButton: {
-    minHeight: 52,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 12,
-    backgroundColor: "#eee",
-    paddingHorizontal: 16,
-  },
-  secondaryButtonText: {
-    color: "#111",
-    fontSize: 16,
-    fontWeight: "700",
   },
   errorText: {
     color: "#d00",
