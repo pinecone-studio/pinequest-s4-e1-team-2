@@ -4,6 +4,7 @@ import {
   StyleSheet, ActivityIndicator, Keyboard,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { BackButton } from '@/components/ui-generated/_comps';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { speech } from '@/src/voice';
@@ -236,9 +237,7 @@ export default function BusRouteScreen() {
 
   return (
     <View style={s.root}>
-      <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-        <Text style={s.backText}>Буцах</Text>
-      </TouchableOpacity>
+      <BackButton onBack={() => router.back()} style={s.backBtn} />
 
       <Text style={s.title}>Автобус чиглэл</Text>
 

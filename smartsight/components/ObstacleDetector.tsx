@@ -22,6 +22,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { BackButton } from '@/components/ui-generated/_comps';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Audio } from 'expo-av';
 import { speech } from '@/src/voice';
@@ -749,9 +750,7 @@ export default function ObstacleDetector() {
         </View>
       )}
 
-      <TouchableOpacity style={s.backBtn} onPress={() => { stopParkingBeep(); router.back(); }}>
-        <Text style={s.backBtnText}>Буцах</Text>
-      </TouchableOpacity>
+      <BackButton onBack={() => { stopParkingBeep(); router.back(); }} style={s.backBtn} />
     </View>
   );
 }

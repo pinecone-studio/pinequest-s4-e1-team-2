@@ -3,6 +3,7 @@ import { ActivityIndicator, Linking, StyleSheet, TouchableOpacity } from "react-
 import { useEffect } from "react";
 import { Text, View } from "@/components/Themed";
 import { useRouter } from "expo-router";
+import { BackButton } from "@/components/ui-generated/_comps";
 import { useRecognition, type ResultType } from "./useRecognition";
 
 function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
@@ -105,9 +106,7 @@ export default function RecognitionCamera({
         </View>
       ) : null}
 
-      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-        <Text style={styles.backBtnText}>Буцах</Text>
-      </TouchableOpacity>
+      <BackButton onBack={() => router.back()} style={styles.backBtn} />
     </View>
   );
 }
