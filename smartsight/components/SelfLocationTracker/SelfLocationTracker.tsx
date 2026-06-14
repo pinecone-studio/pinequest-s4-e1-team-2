@@ -101,6 +101,7 @@ const ADDRESS_WORDS: [RegExp, string][] = [
   [/\bst\b/g, "гудамж"],
   [/\bavenue\b/g, "өргөн чөлөө"],
   [/\bave\b/g, "өргөн чөлөө"],
+
   [/\broad\b/g, "зам"],
   [/\bdistrict\b/g, "дүүрэг"],
   [/\bbuilding\b/g, "барилга"],
