@@ -326,7 +326,7 @@ export function useSelfLocationTracker() {
       }
 
       setAddressText(fields.join("\n"));
-      speak("Та одоо энд байна. " + fields.join(". ") + ".");
+      speak("Таны байршил " + fields.join(". ") + ".");
     } catch {
       setErrorMessage("Байршил тогтооход алдаа гарлаа.");
       speak("Байршил тогтооход алдаа гарлаа.");

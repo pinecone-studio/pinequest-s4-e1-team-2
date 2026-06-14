@@ -7,13 +7,19 @@ import { playSoundFile } from "@/services/audio";
 import { speech } from "@/src/voice";
 
 const DOUBLE_TAP_MS = 600;
-const DRAG_SLOP = 12;
+const DRAG_SLOP = 22;
 
 export function ExploreOverlay() {
   const pathname = usePathname();
   const { hitTest, setActiveElementId, scrollActiveBy } = useAccessibility();
   const currentIdRef = useRef<string | null>(null);
-  const lastTapRef = useRef<{ id: string; time: number } | null>(null);
+  // VoiceOver маягийн идэвхжүүлэлт: explore-оор сүүлд төвлөрсөн элемент болон
+  // түүний onActivate-г санана. Дараа нь хаана ч 2 дарвал ҮҮНИЙГ идэвхжүүлнэ
+  // (жижиг товчийг дахин нарийн товших шаардлагагүй).
+  const lastFocusedRef = useRef<{ id: string; onActivate?: () => void } | null>(
+    null,
+  );
+  const lastTapTimeRef = useRef(0);
   const startPointRef = useRef<{ x: number; y: number } | null>(null);
   const movedRef = useRef(false);
   // Хоёр хурууны scroll төлөв
@@ -32,6 +38,8 @@ export function ExploreOverlay() {
       }
 
       setActiveElementId(hit.id);
+      // Explore-оор хүрсэн элемент = сүүлд төвлөрсөн (2 дарахад идэвхжих бай)
+      lastFocusedRef.current = { id: hit.id, onActivate: hit.onActivate };
 
       if (hit.id !== currentIdRef.current) {
         currentIdRef.current = hit.id;
@@ -50,7 +58,8 @@ export function ExploreOverlay() {
 
   useEffect(() => {
     currentIdRef.current = null;
-    lastTapRef.current = null;
+    lastFocusedRef.current = null;
+    lastTapTimeRef.current = 0;
     startPointRef.current = null;
     movedRef.current = false;
     setActiveElementId(null);
@@ -131,14 +140,25 @@ export function ExploreOverlay() {
           const hit = hitTest(x, y, pathname);
           const now = Date.now();
 
+          // Тап нь элемент дээр буусан бол түүнийг сүүлд төвлөрсөн болгоно
+          // (explore чирэлт readAtPoint дотор аль хэдийн шинэчилсэн).
           if (hit && !movedRef.current) {
-            const lastTap = lastTapRef.current;
-            if (lastTap?.id === hit.id && now - lastTap.time <= DOUBLE_TAP_MS) {
+            lastFocusedRef.current = { id: hit.id, onActivate: hit.onActivate };
+          }
+          const target = lastFocusedRef.current;
+
+          if (movedRef.current) {
+            // Explore чирэлт — 2 дарах дарааллыг тасална
+            lastTapTimeRef.current = 0;
+          } else if (target) {
+            // Цэвэр тап. DOUBLE_TAP_MS дотор хоёр дахь тап ирвэл сүүлд төвлөрсөн
+            // элементийг хаана ч дарсан идэвхжүүлнэ (VoiceOver-ийн адил).
+            if (now - lastTapTimeRef.current <= DOUBLE_TAP_MS) {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              hit.onActivate?.();
-              lastTapRef.current = null;
+              target.onActivate?.();
+              lastTapTimeRef.current = 0;
             } else {
-              lastTapRef.current = { id: hit.id, time: now };
+              lastTapTimeRef.current = now;
             }
           }
 

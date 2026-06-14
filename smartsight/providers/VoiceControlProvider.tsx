@@ -1,31 +1,56 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { router, usePathname } from "expo-router";
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-} from "expo-speech-recognition";
+import { Audio } from "expo-av";
+import * as Haptics from "expo-haptics";
 import { VolumeManager } from "react-native-volume-manager";
+import { AccessibleElement } from "@/components/AccessibleElement";
+import { speech } from "@/src/voice";
+import { playSoundFile } from "@/services/audio";
+import { transcribeAudio, CHIMEGE_RECORDING_OPTIONS } from "@/src/voice/sttManager";
+
+// "Заавар" товч (home.tsx) навигац хийдэггүй — энэ аудио зааврыг тоглуулдаг.
+const INSTRUCTION_AUDIO = require("@/assets/haptics/Instruction.mp3");
 
 const COMMANDS = [
   { keywords: ["саад", "мэдрэгч"], route: "/obstacle" },
   { keywords: ["өрөө", "хайх"], route: "/room-search" },
+  { keywords: ["зам", "тээвэр"], route: "/transport" },
   { keywords: ["текст", "унших"], route: "/ocr" },
   { keywords: ["мөнгө", "мөнгөн", "дэвсгэрт"], route: "/money" },
   { keywords: ["танилтын", "систем"], route: "/recognize" },
   { keywords: ["тохиргоо"], route: "/settings" },
-  { keywords: ["нүүр", "гэр", "эхлэл", "буцах"], route: "/home" },
-  { keywords: ["буцах"], route: "back" },
+  { keywords: ["заавар", "тусламж"], route: "instructions" },
+  { keywords: ["нүүр", "гэр", "эхлэл"], route: "/home" },
+  { keywords: ["буцах", "хаах"], route: "back" },
 ];
 
-// Recognizer-т хүлээгдэж буй үгсийг сэжүүр болгож өгнө (mn-MN танилтыг сайжруулна)
-const CONTEXTUAL_STRINGS = Array.from(new Set(COMMANDS.flatMap((c) => c.keywords)));
+// Хэдэн секунд бичих вэ (командууд богино тул 4с хангалттай)
+const RECORD_MS = 4000;
+
+// Дуут команд товч эдгээр дэлгэцэд ХАРАГДАХГҮЙ:
+// - камер/ML тасралтгүй ажилладаг (Саад мэдрэгч, Танилтын систем) — микрофонтой зөрчилдөнө
+// - нэвтрэх/эхлэлийн урсгал (товч дарж "ороогүй" дэлгэцүүд)
+const VOICE_HIDDEN_ROUTES = [
+  "/",
+  "/login",
+  "/register",
+  "/onboarding",
+  "/permission",
+  "/modal",
+];
+
+// Нэвтрэх/эхлэлийн (feature БИШ) дэлгэцүүд — энд дуут товч харагдахгүй.
+// Бусад БҮХ feature дэлгэцэд (Саад мэдрэгч, Танилтын систем-ийг оруулаад) харагдана.
+
+// Нийлмэл (жагсаалт/форм) дэлгэцүүд: буцах товч доод талд шилжсэн тул дуут товчийг
+// ДЭЭД-ЗҮҮН буланд (хуучин буцах товчны байранд) жижиг icon-оор байрлуулж, доод
+// контент/товчтой давхцахаас сэргийлнэ.
+const VOICE_TOP_ROUTES: string[] = [];
+
+// Байршил дэлгэц: доод "байршил хайх" товчтой давхцахгүйн тулд дуут товчийг
+// 1 товчны өндрөөр (≈88px) дээш гаргана.
+const VOICE_RAISED_ROUTES = ["/location"];
 
 function matchCommand(text: string): string | null {
   const lower = text.toLowerCase().trim();
@@ -40,94 +65,157 @@ export function VoiceControlProvider({
 }: {
   children: React.ReactNode;
 }) {
+  // "listening" = бичиж байна, "processing" = Chimege руу илгээж байна
   const [listening, setListening] = useState(false);
-  const listeningRef = useRef(false);
+  const [processing, setProcessing] = useState(false);
+  const busyRef = useRef(false);
+  const recordingRef = useRef<Audio.Recording | null>(null);
   const pathname = usePathname();
   const isHome = pathname === "/home";
+  // Дуут команд товч: home + бусад feature дэлгэцэд харагдана
+  // (obstacle/recognize/нэвтрэх урсгалаас бусад)
+  const showVoiceButton =
+    Platform.OS === "ios" && !VOICE_HIDDEN_ROUTES.includes(pathname);
+  const voiceAtTop = VOICE_TOP_ROUTES.includes(pathname);
+  const voiceRaised = VOICE_RAISED_ROUTES.includes(pathname);
 
-  const startListening = useCallback(async () => {
-    if (listeningRef.current) return;
-    listeningRef.current = true;
-    const { granted } =
-      await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-    if (!granted) {
-      listeningRef.current = false;
-      return;
-    }
-    setListening(true);
+  const runVoiceCommand = useCallback(async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     try {
-      ExpoSpeechRecognitionModule.start({
-        lang: "mn-MN",
-        interimResults: false,
-        maxAlternatives: 5,
-        contextualStrings: CONTEXTUAL_STRINGS,
-        requiresOnDeviceRecognition: false,
+      const perm = await Audio.requestPermissionsAsync();
+      if (!perm.granted) {
+        busyRef.current = false;
+        return;
+      }
+
+      // iOS-д бичлэг хийхээр аудио session тохируулна
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
       });
-    } catch {
-      listeningRef.current = false;
+
+      const recording = new Audio.Recording();
+      recordingRef.current = recording;
+      await recording.prepareToRecordAsync(CHIMEGE_RECORDING_OPTIONS);
+      await recording.startAsync();
+
+      // "Одоо ярь" дохио — чичиргээ (TTS-ийг бичихгүйн тулд яриа БИШ)
+      setListening(true);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      await new Promise((resolve) => setTimeout(resolve, RECORD_MS));
+
+      await recording.stopAndUnloadAsync();
+      recordingRef.current = null;
       setListening(false);
+      void Haptics.selectionAsync();
+
+      // Тоглуулах горимд буцаана (TTS сонсогдоно)
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+
+      const uri = recording.getURI();
+      if (!uri) {
+        busyRef.current = false;
+        return;
+      }
+
+      setProcessing(true);
+      const text = await transcribeAudio(uri);
+      setProcessing(false);
+
+      const route = matchCommand(text);
+      busyRef.current = false;
+
+      if (!route) {
+        speech.speak("Ойлгосонгүй. Дахин оролдоно уу.");
+        return;
+      }
+      if (route === "back") {
+        router.back();
+      } else if (route === "instructions") {
+        // "Заавар" товчтой адил — навигац хийхгүй, зөвхөн зааврын аудио тоглуулна
+        void playSoundFile(INSTRUCTION_AUDIO);
+      } else if (route === "/home") {
+        // Нүүр рүү — стекийг давхар home-оор бүү дүүргэ
+        router.replace("/home");
+      } else {
+        // push (replace БИШ) — ингэснээр зорилтот дэлгэцийн "Буцах" товч
+        // (router.back) нүүр рүү зөв буцна
+        router.push(route as any);
+      }
+    } catch (e) {
+      if (__DEV__) console.log("[Voice] command error:", String(e));
+      // Цэвэрлэгээ
+      try {
+        await recordingRef.current?.stopAndUnloadAsync();
+      } catch {}
+      recordingRef.current = null;
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+        });
+      } catch {}
+      setListening(false);
+      setProcessing(false);
+      busyRef.current = false;
+      speech.speak("Алдаа гарлаа. Дахин оролдоно уу.");
     }
   }, []);
-
-  useSpeechRecognitionEvent("result", (event) => {
-    // Бүх таамгийг шалгаж, командтай таарсан эхнийг авна
-    let route: string | null = null;
-    for (const r of event.results) {
-      route = matchCommand(r.transcript ?? "");
-      if (route) break;
-    }
-    if (!route) return;
-    ExpoSpeechRecognitionModule.stop();
-    if (route === "back") {
-      router.back();
-    } else {
-      router.replace(route as any);
-    }
-  });
-
-  useSpeechRecognitionEvent("end", () => {
-    listeningRef.current = false;
-    setListening(false);
-  });
-
-  useSpeechRecognitionEvent("error", () => {
-    listeningRef.current = false;
-    setListening(false);
-  });
 
   // Android: volume товч дарахад voice control идэвхждэг
   useEffect(() => {
     if (Platform.OS !== "android") return;
     const sub = VolumeManager.addVolumeListener(() => {
-      startListening();
+      runVoiceCommand();
     });
     return () => sub.remove();
-  }, [startListening]);
+  }, [runVoiceCommand]);
+
+  const badgeText = processing ? "⏳ Боловсруулж байна…" : "🎤 Сонсож байна…";
 
   return (
     <View style={{ flex: 1 }}>
       {children}
 
-      {/* iOS: зөвхөн /home дэлгэцэд "Дуут команд" товч харагдана */}
-      {Platform.OS === "ios" && isHome && (
-        <TouchableOpacity
-          style={[styles.voiceBtn, listening && styles.voiceBtnActive]}
-          onPress={startListening}
-          activeOpacity={0.75}
-          accessible
-          accessibilityLabel="Дуут команд"
-          accessibilityHint="Дарж дуут командыг эхлүүлнэ"
-          accessibilityRole="button"
+      {/* iOS: home + feature дэлгэцүүдэд "Дуут команд" товч харагдана */}
+      {showVoiceButton && (
+        <AccessibleElement
+          id="voice-command"
+          label="Дуут команд"
+          onActivate={runVoiceCommand}
+          ignoreFocus
+          style={[
+            styles.voiceBtn,
+            voiceAtTop
+              ? // Нийлмэл дэлгэцэд: дээд-зүүн булан, жижиг icon
+                styles.voiceBtnTop
+              : // Бусад: доод төв; feature дэлгэцэд доод "Буцах" товчны дээр.
+                // voiceRaised дэлгэцэд (Байршил) 1 товчоор дээш гаргана.
+                {
+                  bottom: isHome ? 36 : voiceRaised ? 228 : 140,
+                  alignSelf: "center",
+                },
+            listening && styles.voiceBtnActive,
+            // Хүрэлтийг доорх ExploreOverlay рүү нэвтрүүлнэ (explore унших + 2 дарж идэвхжүүлнэ)
+            { pointerEvents: "none" },
+          ]}
         >
           <Text style={styles.voiceBtnIcon}>🎤</Text>
-          <Text style={styles.voiceBtnLabel}>Дуут команд</Text>
-        </TouchableOpacity>
+          {!voiceAtTop && (
+            <Text style={styles.voiceBtnLabel}>Дуут команд</Text>
+          )}
+        </AccessibleElement>
       )}
 
-      {/* Сонсож байна indicator — Android болон iOS хоёуланд */}
-      {listening && (
+      {/* Сонсож/Боловсруулж байна indicator */}
+      {(listening || processing) && (
         <View style={styles.listeningBadge} pointerEvents="none">
-          <Text style={styles.listeningText}>🎤 Сонсож байна…</Text>
+          <Text style={styles.listeningText}>{badgeText}</Text>
         </View>
       )}
     </View>
@@ -137,8 +225,6 @@ export function VoiceControlProvider({
 const styles = StyleSheet.create({
   voiceBtn: {
     position: "absolute",
-    bottom: 36,
-    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -151,6 +237,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
+  },
+  // Нийлмэл дэлгэцэд: дээд-зүүн булан, жижиг icon (хуучин буцах товчны байр)
+  voiceBtnTop: {
+    top: 54,
+    left: 16,
+    alignSelf: "flex-start",
+    paddingHorizontal: 16,
   },
   voiceBtnActive: {
     backgroundColor: "#2D6A4F",
