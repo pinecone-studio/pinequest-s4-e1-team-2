@@ -43,8 +43,23 @@ function mnNumber(n: number): string {
   return parts.join(' ');
 }
 
+// Нэр (метр г.м.) дагуулсан тооны ТОДОТГОЛ хэлбэр: 10 → арван, 7 → долоон.
+// (Энгийн mnNumber нь "арав"/"долоо" гэсэн төгсгөлийн хэлбэр өгдөг нь "арав метр" гэж эвгүй сонсогддог.)
+function mnNumberAttr(n: number): string {
+  if (n <= 0 || n > 99) return mnNumber(n);
+  const t = Math.floor(n / 10);
+  const o = n % 10;
+  const parts: string[] = [];
+  if (t > 0) parts.push(MN_TENS[t]);
+  if (o > 0) parts.push(MN_ONES[o]);
+  return parts.join(' ');
+}
+
 function sanitizeForChimege(text: string): string {
   return text
+    // Аравтын бутархайг (9.9) хамгийн ойрын бүхэл болгож тодотгол хэлбэрээр уншина (9.9 → арван).
+    // Эс бөгөөс Chimege "цэг"-ийг "9 аравны 9" мэт эвгүй уншдаг.
+    .replace(/\d+\.\d+/g, (m) => mnNumberAttr(Math.round(parseFloat(m))))
     // Таслалтай (10,000) болон энгийн тоог монгол үг болгоно
     .replace(/\d[\d,]*\d|\d/g, (m) => mnNumber(parseInt(m.replace(/,/g, ''), 10)))
     .toLowerCase()

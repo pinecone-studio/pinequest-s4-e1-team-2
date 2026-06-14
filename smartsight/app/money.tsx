@@ -2,6 +2,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, PanResponder, StyleSheet, TouchableOpacity, View, Text } from "react-native";
 import { useRouter } from "expo-router";
+import { BackButton } from "@/components/ui-generated/_comps";
 import { useMoneyDetection } from "@/components/Recognition/useMoneyDetection";
 
 function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
@@ -66,9 +67,7 @@ export default function MoneyPage() {
         </View>
       ) : null}
 
-      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-        <Text style={styles.backBtnText}>← Буцах</Text>
-      </TouchableOpacity>
+      <BackButton onBack={() => router.back()} style={styles.backBtn} label="← Буцах" />
     </View>
   );
 }

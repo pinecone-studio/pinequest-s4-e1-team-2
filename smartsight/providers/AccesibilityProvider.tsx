@@ -41,6 +41,12 @@ interface AccessibilityContextValue {
   hitTest: (x: number, y: number, screenKey: string) => HitResult | null;
   activeElementId: string | null;
   setActiveElementId: (id: string | null) => void;
+  // Хоёр хурууны scroll-ийг идэвхтэй ScrollView рүү дамжуулна
+  setScroller: (fn: ((dy: number) => void) | null) => void;
+  scrollActiveBy: (dy: number) => void;
+  // Scroll/layout өөрчлөгдөхөд бүх элементийн байрлалыг дахин хэмжинэ
+  addRemeasurer: (fn: () => void) => () => void;
+  remeasureAll: () => void;
 }
 const noop = () => {};
 const AccessibilityContext = createContext<AccessibilityContextValue>({
@@ -49,6 +55,10 @@ const AccessibilityContext = createContext<AccessibilityContextValue>({
   hitTest: () => null,
   activeElementId: null,
   setActiveElementId: noop,
+  setScroller: noop,
+  scrollActiveBy: noop,
+  addRemeasurer: () => noop,
+  remeasureAll: noop,
 });
 
 export const AccessibilityProvider = ({
@@ -58,6 +68,28 @@ export const AccessibilityProvider = ({
 }) => {
   const registry = useRef<Map<string, RegisteredElement>>(new Map());
   const [activeElementId, setActiveElementId] = useState<string | null>(null);
+  const scrollerRef = useRef<((dy: number) => void) | null>(null);
+
+  const setScroller = useCallback((fn: ((dy: number) => void) | null) => {
+    scrollerRef.current = fn;
+  }, []);
+
+  const scrollActiveBy = useCallback((dy: number) => {
+    scrollerRef.current?.(dy);
+  }, []);
+
+  const remeasurersRef = useRef<Set<() => void>>(new Set());
+
+  const addRemeasurer = useCallback((fn: () => void) => {
+    remeasurersRef.current.add(fn);
+    return () => {
+      remeasurersRef.current.delete(fn);
+    };
+  }, []);
+
+  const remeasureAll = useCallback(() => {
+    remeasurersRef.current.forEach((fn) => fn());
+  }, []);
 
   const register = useCallback((
     id: string,
@@ -98,8 +130,21 @@ export const AccessibilityProvider = ({
       hitTest,
       activeElementId,
       setActiveElementId,
+      setScroller,
+      scrollActiveBy,
+      addRemeasurer,
+      remeasureAll,
     }),
-    [activeElementId, hitTest, register, unregister],
+    [
+      activeElementId,
+      hitTest,
+      register,
+      unregister,
+      setScroller,
+      scrollActiveBy,
+      addRemeasurer,
+      remeasureAll,
+    ],
   );
 
   return (
