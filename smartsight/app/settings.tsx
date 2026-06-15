@@ -184,7 +184,6 @@ const s = StyleSheet.create({
 
   segRow: { flexDirection: "row", paddingHorizontal: 24, gap: 12 },
   seg: {
-    flex: 1,
     minHeight: 72,
     borderRadius: 16,
     backgroundColor: "#F2F2F7",
