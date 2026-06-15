@@ -278,6 +278,8 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
                 ? "Текст олдлоо"
                 : "Камер текст автоматаар хайж байна"}
         </Text>
+        {/* Товчнуудыг доош түлхэж, дээрх дуут командын товчтой давхцахаас сэргийлнэ */}
+        <View style={{ flex: 1 }} />
         <View style={ss.featureRow}>
           <View style={{ flex: 1 }}>
             <Button
@@ -304,7 +306,6 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
             />
           </View>
         </View>
-        {st !== "done" && <View style={{ flex: 1 }} />}
       </Screen>
     </BalancerProvider>
   );

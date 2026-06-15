@@ -1,12 +1,15 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { ActivityIndicator, StyleSheet, TouchableOpacity } from "react-native";
+import { ActivityIndicator, Linking, StyleSheet, TouchableOpacity } from "react-native";
+import { useEffect } from "react";
 import { Text, View } from "@/components/Themed";
 import { useRouter } from "expo-router";
+import { BackButton } from "@/components/ui-generated/_comps";
 import { useRecognition, type ResultType } from "./useRecognition";
 
 function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
   return (
     <View style={styles.center}>
+      <Text style={styles.permissionText}>Камерын зөвшөөрөл шаардлагатай</Text>
       <TouchableOpacity
         style={styles.button}
         onPress={onRequest}
@@ -37,10 +40,31 @@ function getTypeLabel(type: ResultType): string {
   }
 }
 
-export default function RecognitionCamera() {
+export default function RecognitionCamera({
+  targetDoorNumber,
+}: {
+  targetDoorNumber?: string;
+}) {
   const [permission, requestPermission] = useCameraPermissions();
-  const { cameraRef, result, resultType, isScanning } = useRecognition();
+  const { cameraRef, result, resultType, isScanning } = useRecognition({
+    targetDoorNumber,
+  });
   const router = useRouter();
+
+  // Зөвшөөрлийг автоматаар асууна
+  useEffect(() => {
+    if (permission && !permission.granted && permission.canAskAgain) {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
+
+  const handleRequest = async () => {
+    const res = await requestPermission();
+    // "Дахиж бүү асуу" гэж татгалзсан бол OS дахиж асуухгүй — Тохиргоо руу оруулна
+    if (!res.granted && !res.canAskAgain) {
+      Linking.openSettings();
+    }
+  };
 
   if (permission === null) {
     return (
@@ -51,12 +75,18 @@ export default function RecognitionCamera() {
   }
 
   if (!permission.granted) {
-    return <PermissionPrompt onRequest={requestPermission} />;
+    return <PermissionPrompt onRequest={handleRequest} />;
   }
 
   return (
     <View style={styles.container}>
       <CameraView ref={cameraRef} style={styles.camera} autofocus="on" />
+
+      {targetDoorNumber ? (
+        <View style={styles.targetBadge}>
+          <Text style={styles.targetBadgeText}>{targetDoorNumber} тоот өрөө хайж байна</Text>
+        </View>
+      ) : null}
 
       {/* [2] Scanning indicator */}
       {isScanning && !result && (
@@ -76,9 +106,7 @@ export default function RecognitionCamera() {
         </View>
       ) : null}
 
-      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-        <Text style={styles.backBtnText}>Буцах</Text>
-      </TouchableOpacity>
+      <BackButton onBack={() => router.back()} style={styles.backBtn} />
     </View>
   );
 }
@@ -87,6 +115,23 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
   camera: { flex: 1 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  targetBadge: {
+    position: "absolute",
+    top: 96,
+    left: 16,
+    right: 16,
+    backgroundColor: "rgba(30,100,200,0.92)",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  targetBadgeText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
 
   resultCard: {
     position: "absolute", bottom: 80, left: 16, right: 16,
@@ -123,7 +168,7 @@ const styles = StyleSheet.create({
 
   // [2] Scanning indicator
   scanningBadge: {
-    position: "absolute", top: 100, alignSelf: "center",
+    position: "absolute", top: 150, alignSelf: "center",
     flexDirection: "row", alignItems: "center", gap: 8,
     backgroundColor: "rgba(0,0,0,0.6)",
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
@@ -140,6 +185,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonText: { color: "#fff", fontSize: 24, fontWeight: "bold" },
+  permissionText: { color: "#fff", fontSize: 18, textAlign: "center", marginHorizontal: 24, marginBottom: 8 },
   backBtn: {
     position: "absolute", top: 50, left: 20,
     backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,

@@ -1,19 +1,31 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
-  View, Text, TouchableOpacity, FlatList,
-  StyleSheet, ActivityIndicator,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import * as Location from 'expo-location';
-import { speech } from '@/src/voice';
-import { getAllStopsWithRoutes, type BusStopGroup } from '@/services/busApi';
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Button } from "@/components/ui-generated/_comps";
+import { AccessibleElement } from "@/components/AccessibleElement";
+import { useAccessibility } from "@/providers/AccesibilityProvider";
+import * as Location from "expo-location";
+import { speech } from "@/src/voice";
+import { getAllStopsWithRoutes, type BusStopGroup } from "@/services/busApi";
 
 function haversineM(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371000;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a = Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -27,21 +39,42 @@ export default function NearbyStopsScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [stops, setStops] = useState<NearbyStop[]>([]);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const { setScroller, remeasureAll } = useAccessibility();
+  const scrollRef = useRef<ScrollView>(null);
+  const offsetRef = useRef(0);
+  const uid = React.useId().replace(/:/g, "-");
+
+  // ExploreOverlay-ийн 2 хурууны scroll-ийг энэ ScrollView рүү холбоно
+  useEffect(() => {
+    setScroller((dy) => {
+      const next = Math.max(0, offsetRef.current + dy);
+      offsetRef.current = next;
+      scrollRef.current?.scrollTo({ y: next, animated: false });
+    });
+    return () => setScroller(null);
+  }, [setScroller]);
+
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    offsetRef.current = e.nativeEvent.contentOffset.y;
+    remeasureAll(); // scroll бүрт элементийн байрлалыг шинэчилж stale координат засна
+  };
 
   const findNearby = useCallback(async () => {
     setLoading(true);
-    setError('');
+    setError("");
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setError('Байршлын зөвшөөрөл шаардлагатай');
-        speech.speak('Байршлын зөвшөөрөл шаардлагатай');
+      if (status !== "granted") {
+        setError("Байршлын зөвшөөрөл шаардлагатай");
+        speech.speak("Байршлын зөвшөөрөл шаардлагатай");
         setLoading(false);
         return;
       }
 
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
       const { latitude, longitude } = loc.coords;
 
       const allStops = await getAllStopsWithRoutes();
@@ -54,19 +87,19 @@ export default function NearbyStopsScreen() {
 
       // getAllStopsWithRoutes returns BusStopGroup[] without coords
       // We need a different approach - search nearby using the station list
-      const { searchStations } = await import('@/services/busApi');
+      const { searchStations } = await import("@/services/busApi");
 
       // Search with common Mongolian stop name prefixes to get stops with coordinates
-      const results = await searchStations('');
+      const results = await searchStations("");
 
       const nearby: NearbyStop[] = results
-        .filter(s => s.gpxX && s.gpxY)
-        .map(s => {
+        .filter((s) => s.gpxX && s.gpxY)
+        .map((s) => {
           const lat = parseFloat(s.gpxY);
           const lon = parseFloat(s.gpxX);
           const distance = haversineM(latitude, longitude, lat, lon);
           // Find matching group info for route list
-          const group = allStops.find(g => g.busStopId === s.busStopId);
+          const group = allStops.find((g) => g.busStopId === s.busStopId);
           return {
             busStopId: s.busStopId,
             busStopName: s.busStopName,
@@ -77,23 +110,26 @@ export default function NearbyStopsScreen() {
           };
         })
         .sort((a, b) => a.distance - b.distance)
-        .slice(0, 15);
+        .slice(0, 5);
 
       setStops(nearby);
 
       if (nearby.length > 0) {
         const closest = nearby[0];
-        const distText = closest.distance < 1000
-          ? `${Math.round(closest.distance)} метр`
-          : `${(closest.distance / 1000).toFixed(1)} километр`;
-        speech.speak(`Хамгийн ойр буудал ${closest.busStopName}, ${distText} зайтай`);
+        const distText =
+          closest.distance < 1000
+            ? `${Math.round(closest.distance)} метр`
+            : `${(closest.distance / 1000).toFixed(1)} километр`;
+        speech.speak(
+          `Хамгийн ойр буудал ${closest.busStopName}, ${distText} зайтай`,
+        );
       } else {
-        speech.speak('Ойролцоо буудал олдсонгүй');
+        speech.speak("Ойролцоо буудал олдсонгүй");
       }
     } catch (err) {
-      console.warn('[NearbyStops] error:', err);
-      setError('Буудал хайхад алдаа гарлаа');
-      speech.speak('Алдаа гарлаа');
+      console.warn("[NearbyStops] error:", err);
+      setError("Буудал хайхад алдаа гарлаа");
+      speech.speak("Алдаа гарлаа");
     } finally {
       setLoading(false);
     }
@@ -101,7 +137,7 @@ export default function NearbyStopsScreen() {
 
   useEffect(() => {
     setTimeout(() => {
-      speech.speak('Ойролцоох буудлуудыг хайж байна');
+      speech.speak("Ойролцоох буудлуудыг хайж байна");
     }, 500);
     findNearby();
   }, []);
@@ -110,12 +146,18 @@ export default function NearbyStopsScreen() {
     return m < 1000 ? `${Math.round(m)} м` : `${(m / 1000).toFixed(1)} км`;
   }
 
+  // Мэдээлэл ирэх/төлөв солигдоход layout шилждэг тул элементүүдийг дахин хэмжинэ
+  // (буцах товчны байрлал тогтворгүй болж "ажиллахгүй" асуудлыг засна)
+  useEffect(() => {
+    const timers = [
+      setTimeout(remeasureAll, 250),
+      setTimeout(remeasureAll, 600),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [stops, loading, error, remeasureAll]);
+
   return (
     <View style={s.root}>
-      <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-        <Text style={s.backText}>Буцах</Text>
-      </TouchableOpacity>
-
       <Text style={s.title}>Ойролцоох буудлууд</Text>
 
       {loading && (
@@ -134,83 +176,138 @@ export default function NearbyStopsScreen() {
         </View>
       ) : null}
 
-      {!loading && !error && (
-        <FlatList
-          data={stops}
-          keyExtractor={item => item.busStopId}
-          style={s.list}
-          renderItem={({ item, index }) => (
-            <TouchableOpacity
-              style={s.stopCard}
-              onPress={() => {
-                speech.speak(`${item.busStopName}, ${formatDist(item.distance)} зайтай`);
-              }}
-              onLongPress={() => {
-                router.push({
-                  pathname: '/bus-route',
-                  params: { prefillTo: item.busStopName },
-                } as any);
-              }}
-            >
-              <View style={s.stopHeader}>
-                <Text style={s.stopIndex}>{index + 1}</Text>
-                <View style={s.stopInfo}>
-                  <Text style={s.stopName}>{item.busStopName}</Text>
-                  {item.routeList && item.routeList.length > 0 && (
-                    <Text style={s.routeText}>
-                      {item.routeList.map(r => r.busRouteNo).join(', ')}
-                    </Text>
-                  )}
-                </View>
-                <Text style={s.distText}>{formatDist(item.distance)}</Text>
+      {/* Контентын талбай үргэлж flex:1 — доорх "Буцах" товч ТОГТВОРТОЙ доод талд үлдэнэ
+          (мэдээлэл ирэхэд байрлал шилждэггүй) */}
+      <View style={{ flex: 1 }}>
+        {!loading && !error && (
+          <ScrollView
+            ref={scrollRef}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            contentContainerStyle={{ paddingBottom: 90, gap: 8 }}
+          >
+            {stops.length === 0 && (
+              <View style={s.center}>
+                <Text style={s.emptyText}>Буудал олдсонгүй</Text>
               </View>
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            <View style={s.center}>
-              <Text style={s.emptyText}>Буудал олдсонгүй</Text>
-            </View>
-          }
-        />
-      )}
+            )}
 
-      {!loading && (
-        <TouchableOpacity style={s.refreshBtn} onPress={findNearby}>
-          <Text style={s.refreshText}>ШИНЭЧЛЭХ</Text>
-        </TouchableOpacity>
-      )}
+            {/* Буудал бүр explore-by-touch — хуруу хүрэхэд нэр+зай уншина, 2 дарж очно */}
+            {stops.map((item, index) => (
+              <AccessibleElement
+                key={item.busStopId}
+                id={`nearby-${uid}-${item.busStopId}`}
+                label={`${item.busStopName}, ${formatDist(item.distance)} зайтай`}
+                onActivate={() =>
+                  router.push({
+                    pathname: "/bus-route",
+                    params: { prefillTo: item.busStopName },
+                  } as any)
+                }
+              >
+                <View style={s.stopCard}>
+                  <View style={s.stopHeader}>
+                    <Text style={s.stopIndex}>{index + 1}</Text>
+                    <View style={s.stopInfo}>
+                      <Text style={s.stopName}>{item.busStopName}</Text>
+                      {item.routeList && item.routeList.length > 0 && (
+                        <Text style={s.routeText}>
+                          {item.routeList.map((r) => r.busRouteNo).join(", ")}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={s.distText}>{formatDist(item.distance)}</Text>
+                  </View>
+                </View>
+              </AccessibleElement>
+            ))}
+
+            <AccessibleElement
+              id={`nearby-${uid}-refresh`}
+              label="Шинэчлэх"
+              onActivate={findNearby}
+            >
+              <View style={s.refreshBtn}>
+                <Text style={s.refreshText}>ШИНЭЧЛЭХ</Text>
+              </View>
+            </AccessibleElement>
+          </ScrollView>
+        )}
+      </View>
+
+      {/* Буцах товч ТОГТВОРТОЙ доод талд — scroll-д хөдлөхгүй */}
+      <View style={{ paddingTop: 8, paddingBottom: 24 }}>
+        <Button
+          label="Буцах"
+          height={88}
+          audioSource={require("@/assets/haptics/backbtn.mp3")}
+          onPress={() => router.back()}
+        />
+      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#000', paddingTop: 60, paddingHorizontal: 16 },
-  backBtn: {
-    position: 'absolute', top: 50, left: 20, zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
+  root: {
+    flex: 1,
+    backgroundColor: "#000",
+    paddingTop: 60,
+    paddingHorizontal: 16,
   },
-  backText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  title: { color: '#fff', fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginTop: 30, marginBottom: 20 },
-  center: { alignItems: 'center', paddingVertical: 40 },
-  loadText: { color: 'rgba(255,255,255,0.6)', fontSize: 16, marginTop: 12 },
-  errorText: { color: '#FF9800', fontSize: 18, fontWeight: '600' },
-  retryBtn: { backgroundColor: '#1E88E5', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10, marginTop: 16 },
-  retryText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  backBtn: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    zIndex: 10,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  backText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  title: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginTop: 30,
+    marginBottom: 20,
+  },
+  center: { alignItems: "center", paddingVertical: 40 },
+  loadText: { color: "rgba(255,255,255,0.6)", fontSize: 16, marginTop: 12 },
+  errorText: { color: "#FF9800", fontSize: 18, fontWeight: "600" },
+  retryBtn: {
+    backgroundColor: "#1E88E5",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 16,
+  },
+  retryText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
   list: { flex: 1 },
   stopCard: {
-    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 16,
-    marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
-  stopHeader: { flexDirection: 'row', alignItems: 'center' },
-  stopIndex: { color: '#1E88E5', fontSize: 20, fontWeight: 'bold', width: 32 },
+  stopHeader: { flexDirection: "row", alignItems: "center" },
+  stopIndex: { color: "#1E88E5", fontSize: 20, fontWeight: "bold", width: 32 },
   stopInfo: { flex: 1 },
-  stopName: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  routeText: { color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4 },
-  distText: { color: '#4CAF50', fontSize: 16, fontWeight: 'bold' },
-  emptyText: { color: 'rgba(255,255,255,0.5)', fontSize: 18 },
+  stopName: { color: "#fff", fontSize: 17, fontWeight: "600" },
+  routeText: { color: "rgba(255,255,255,0.5)", fontSize: 13, marginTop: 4 },
+  distText: { color: "#4CAF50", fontSize: 16, fontWeight: "bold" },
+  emptyText: { color: "rgba(255,255,255,0.5)", fontSize: 18 },
   refreshBtn: {
-    backgroundColor: '#1E88E5', paddingVertical: 16, borderRadius: 12,
-    alignItems: 'center', marginBottom: 30, marginTop: 12,
+    backgroundColor: "#1E88E5",
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 30,
+    marginTop: 12,
   },
-  refreshText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  refreshText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
 });

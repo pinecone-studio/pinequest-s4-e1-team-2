@@ -3,15 +3,31 @@ import { Vibration } from "react-native";
 import { CameraView } from "expo-camera";
 import TextRecognition from "@react-native-ml-kit/text-recognition";
 import { speech } from "@/src/voice";
-import { detectDoorNumber, formatMoney, selectPrimaryBlock } from "./classifyRecognition";
-import { detectMoneyViaTM } from "./detectMoneyViaTM";
+import {
+  detectDoorNumbers,
+  detectDoorNumberValues,
+  selectPrimaryBlock,
+} from "./classifyRecognition";
 
 const SCAN_INTERVAL_MS = 800;
-const MIN_BLOCK_RATIO = 0.01;
 
 export type ResultType = "door" | "text" | "money" | "scanning" | "none";
 
-export function useRecognition() {
+type UseRecognitionOptions = {
+  targetDoorNumber?: string;
+};
+
+function normalizeDoorNumber(value?: string) {
+  return value?.replace(/\D/g, "");
+}
+
+function toComparableDoorNumber(value?: string) {
+  const normalized = normalizeDoorNumber(value);
+  if (!normalized) return "";
+  return normalized.replace(/^0+/, "") || "0";
+}
+
+export function useRecognition({ targetDoorNumber }: UseRecognitionOptions = {}) {
   const cameraRef = useRef<CameraView>(null);
   const busyRef = useRef(false);
   const lastAnnouncedRef = useRef<string | null>(null);
@@ -20,17 +36,22 @@ export function useRecognition() {
   const [isScanning, setIsScanning] = useState(false);
   const lastResultRef = useRef<string>("");
   const lastResultTypeRef = useRef<ResultType>("none");
-  const tooSmallCountRef = useRef(0);
   const hasSpokenIntroRef = useRef(false);
+  const normalizedTarget = normalizeDoorNumber(targetDoorNumber);
+  const comparableTarget = toComparableDoorNumber(targetDoorNumber);
 
   useEffect(() => {
     if (!hasSpokenIntroRef.current) {
       hasSpokenIntroRef.current = true;
       setTimeout(() => {
-        speech.speak("Таних систем. Мөнгөн дэвсгэрт, хаалганы дугаар эсвэл текстээ камер руу харуулна уу");
+        if (normalizedTarget) {
+          speech.speak(`Таних систем. ${normalizedTarget} тоот өрөөний дугаарыг камер руу харуулна уу`);
+        } else {
+          speech.speak("Таних систем. Хаалганы дугаар эсвэл текстээ камер руу харуулна уу");
+        }
       }, 500);
     }
-  }, []);
+  }, [normalizedTarget]);
 
   const announce = useCallback((text: string, type: ResultType) => {
     if (text === lastAnnouncedRef.current) return;
@@ -39,7 +60,6 @@ export function useRecognition() {
     setResultType(type);
     lastResultRef.current = text;
     lastResultTypeRef.current = type;
-    tooSmallCountRef.current = 0;
     if (type === "money") {
       Vibration.vibrate([0, 100, 50, 100, 50, 100]);
     } else if (type === "door") {
@@ -62,43 +82,36 @@ export function useRecognition() {
     try {
       const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 1, shutterSound: false });
       if (!photo) return;
-      const photoArea = photo.width * photo.height;
 
-      const denomination = await detectMoneyViaTM(photo.uri);
-      if (denomination !== null) {
-        announce(formatMoney(denomination), "money");
+      const ocrResult = await TextRecognition.recognize(photo.uri);
+      // Ойртуулах шаардлагагүй — олдсон тоонуудыг шууд унш
+      const detectedDoorValues = detectDoorNumberValues(ocrResult.blocks);
+      const matchedTarget =
+        normalizedTarget &&
+        detectedDoorValues.some(
+          (value) => toComparableDoorNumber(value) === comparableTarget,
+        );
+
+      if (matchedTarget) {
+        announce(`Зорьсон ${normalizedTarget} тоот өрөө олдлоо`, "door");
         return;
       }
 
-      const ocrResult = await TextRecognition.recognize(photo.uri);
-      const block = selectPrimaryBlock(ocrResult.blocks);
-      if (block?.frame && photoArea > 0) {
-        const blockRatio = (block.frame.width * block.frame.height) / photoArea;
-        if (blockRatio < MIN_BLOCK_RATIO && block.text?.trim()) {
-          tooSmallCountRef.current++;
-          if (tooSmallCountRef.current >= 3) {
-            speech.speak("Ойртуулна уу, текст жижиг байна");
-            tooSmallCountRef.current = 0;
-          }
+      const doorDetection = detectDoorNumbers(ocrResult.blocks, photo.width);
+      if (doorDetection) {
+        announce(doorDetection, "door");
+      } else {
+        const block = selectPrimaryBlock(ocrResult.blocks);
+        if (block?.text?.trim()) {
+          announce(block.text.trim(), "text");
+        } else {
+          lastAnnouncedRef.current = null;
           if (lastResultRef.current) {
             setResult(lastResultRef.current);
             setResultType(lastResultTypeRef.current);
+          } else {
+            setResultType("none");
           }
-          return;
-        }
-      }
-      const doorDetection = detectDoorNumber(block, photoArea);
-      if (doorDetection) {
-        announce(doorDetection, "door");
-      } else if (block?.text?.trim()) {
-        announce(block.text.trim(), "text");
-      } else {
-        lastAnnouncedRef.current = null;
-        if (lastResultRef.current) {
-          setResult(lastResultRef.current);
-          setResultType(lastResultTypeRef.current);
-        } else {
-          setResultType("none");
         }
       }
     } catch {
@@ -107,7 +120,7 @@ export function useRecognition() {
       busyRef.current = false;
       setIsScanning(false);
     }
-  }, [announce]);
+  }, [announce, comparableTarget, normalizedTarget]);
 
   useEffect(() => {
     const id = setInterval(tick, SCAN_INTERVAL_MS);

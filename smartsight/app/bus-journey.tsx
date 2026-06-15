@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, Vibration } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { BackButton } from '@/components/ui-generated/_comps';
 import * as Location from 'expo-location';
 import { speech } from '@/src/voice';
 import { getStopsByRoute, type StopOnRoute } from '@/services/busApi';
@@ -117,9 +118,7 @@ export default function BusJourneyScreen() {
 
   return (
     <View style={s.root}>
-      <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-        <Text style={s.backText}>Буцах</Text>
-      </TouchableOpacity>
+      <BackButton onBack={() => router.back()} style={s.backBtn} />
 
       <Text style={s.title}>{params.routeName ?? 'Чиглэл'}</Text>
       <Text style={s.subtitle}>

@@ -1,5 +1,6 @@
-import { Text, TouchableOpacity, View } from "react-native";
+import { View } from "react-native";
 import { Room } from "@/services/indoor-navigation";
+import { Button } from "@/components/ui-generated/_comps";
 
 export function DestinationPicker({
   rooms,
@@ -11,15 +12,12 @@ export function DestinationPicker({
   return (
     <View style={{ gap: 12 }}>
       {rooms.map((room) => (
-        <TouchableOpacity
+        <Button
           key={room.id}
+          label={room.name}
+          height={84}
           onPress={() => onSelect(room)}
-          style={{ backgroundColor: "#111", padding: 18, borderRadius: 12 }}
-        >
-          <Text style={{ color: "#fff", fontSize: 22, fontWeight: "700" }}>
-            {room.name}
-          </Text>
-        </TouchableOpacity>
+        />
       ))}
     </View>
   );
