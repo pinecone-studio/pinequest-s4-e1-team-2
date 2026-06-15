@@ -6,14 +6,12 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button } from "@/components/ui-generated/_comps";
 import { BalancerProvider } from "@/providers/useBalancer";
 import { useBolorSpellCheck } from "@/components/useBolorSpellCheck";
-import { useVoice } from "@/src/voice";
+import { speech, useVoice } from "@/src/voice";
 import { Audio } from "expo-av";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import type { CameraType } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
 import { playSoundFile, stopAllAudio } from "@/services/audio";
-
-const AUTO_DETECT_INTERVAL_MS = 2600;
 
 const PRELOADED_AUDIO = {
   instruction: require("@/assets/haptics/tilt-device-instruction.mp3"),
@@ -94,20 +92,8 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
   const busyRef = useRef(false);
   const foundTextRef = useRef(false);
   const { checkSpelling, reset: resetSpellCheck } = useBolorSpellCheck();
-  const { stop } = useVoice();
+  const { stop, speak } = useVoice();
   const balanceDisabled = st !== "idle";
-
-  useEffect(() => {
-    if (!permission) {
-      requestPermission().catch((err) => {
-        console.warn("[OCR] Camera permission request failed:", err);
-      });
-    }
-
-    return () => {
-      void stopAllAudio();
-    };
-  }, [permission, requestPermission]);
 
   useEffect(() => {
     return () => {
@@ -117,7 +103,12 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
   }, [stop]);
 
   const captureAndOcr = useCallback(async () => {
-    if (!cameraRef.current || !cameraReady || busyRef.current || foundTextRef.current) {
+    if (
+      !cameraRef.current ||
+      !cameraReady ||
+      busyRef.current ||
+      foundTextRef.current
+    ) {
       return;
     }
     busyRef.current = true;
@@ -129,7 +120,7 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.75,
+        quality: 1,
         shutterSound: false,
       });
 
@@ -157,6 +148,7 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
 
       foundTextRef.current = true;
       setOcrText(nextText);
+      speech.speak(nextText);
       await stopAllAudio();
       setSt("done");
     } catch (error) {
@@ -197,15 +189,7 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
-    const schedule = () => {
-      if (cancelled || foundTextRef.current) return;
-      timer = setTimeout(async () => {
-        await captureAndOcr();
-        schedule();
-      }, AUTO_DETECT_INTERVAL_MS);
-    };
-
-    void captureAndOcr().finally(schedule);
+    void captureAndOcr();
 
     return () => {
       cancelled = true;
@@ -247,7 +231,9 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
       </BalancerProvider>
     );
   }
-
+  async function ReadAloud() {
+    speech.speak(ocrText);
+  }
   return (
     <BalancerProvider disabled={balanceDisabled}>
       <Screen style={{ gap: 5 }}>
@@ -269,15 +255,6 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
             </ScrollView>
           ) : null}
         </View>
-        <Text style={ss.cameraHint}>
-          {st === "reading"
-            ? "Текст хайж байна…"
-            : st === "correcting"
-              ? "Алдааг шалгаж байна…"
-              : st === "done"
-                ? "Текст олдлоо"
-                : "Камер текст автоматаар хайж байна"}
-        </Text>
         {/* Товчнуудыг доош түлхэж, дээрх дуут командын товчтой давхцахаас сэргийлнэ */}
         <View style={{ flex: 1 }} />
         <View style={ss.featureRow}>
@@ -291,7 +268,8 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
                 setSt("idle");
                 setScanVersion((current) => current + 1);
               }}
-            />
+            />{" "}
+            <Button label={"Унших"} height={80} onPress={ReadAloud}></Button>
           </View>
           <View style={{ flex: 1 }}>
             <Button
