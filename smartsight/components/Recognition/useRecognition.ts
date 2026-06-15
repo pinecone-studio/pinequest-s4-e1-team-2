@@ -67,7 +67,7 @@ export function useRecognition({ targetDoorNumber }: UseRecognitionOptions = {})
     } else {
       Vibration.vibrate(100);
     }
-    speech.speak(text);
+    speech.speak(type === "door" ? `Өрөө ${text}` : text);
     if (type === "money") {
       setTimeout(() => {
         if (lastAnnouncedRef.current === text) speech.speak(text);
