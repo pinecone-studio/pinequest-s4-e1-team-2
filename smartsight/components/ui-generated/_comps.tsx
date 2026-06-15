@@ -1,36 +1,23 @@
-// components.tsx — Smart Sight · React Native
-// Drop this into your /components/ folder.
-// Replaces all 5 ui-generated files (frame, component, screens-onboarding, screens-features, app)
-// Usage: import { T, Button, HomeScreen, ... } from '@/components/components'
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
   StyleSheet,
   Animated,
-  Dimensions,
   Platform,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { router } from "expo-router";
-import * as Haptics from "expo-haptics";
 import type { AVPlaybackSource } from "expo-av";
 import { useSettings } from "@/providers/SettingsProvider";
-import { useVoice, speech } from "@/src/voice";
 import { Screen } from "../Screen";
 import { AccessibleElement } from "../AccessibleElement";
 import { useAccessibility } from "@/providers/AccesibilityProvider";
 import SelfLocationTracker, {
   useSelfLocationTracker,
 } from "../SelfLocationTracker";
-const { width: SCREEN_W } = Dimensions.get("window");
 
-// ─────────────────────────────────────────────
-// DESIGN TOKENS  (was: const T = { ... })
-// ─────────────────────────────────────────────
 export const T = {
   bg: "#FFFFFF",
   text: "#0A0A0A",
@@ -44,11 +31,6 @@ export const T = {
   rBtn: 16,
   rCard: 20,
 };
-
-// ─────────────────────────────────────────────
-// SCREEN WRAPPERS  (was: <div style={{flex:1}}>)
-// Web <div style={{flex:1, padding:20}}> → RN <View style={{flex:1, padding:20}}>
-// Web overflow scroll <div> → RN <ScrollView>
 
 interface ButtonProps {
   label: string;
@@ -97,10 +79,6 @@ export function Button({
     }).start();
   };
 
-  const handlePress = () => {
-    action?.();
-  };
-
   return (
     <Animated.View style={{ transform: [{ scale }], width: "100%", height }}>
       <AccessibleElement
@@ -110,7 +88,7 @@ export function Button({
         onActivate={action}
       >
         <TouchableOpacity
-          onPress={handlePress}
+          onPress={action}
           onPressIn={onPressIn}
           onPressOut={onPressOut}
           activeOpacity={1}
@@ -143,10 +121,6 @@ export function Button({
   );
 }
 
-// ─────────────────────────────────────────────
-// ALERT BAR
-// ─────────────────────────────────────────────
-// Web: CSS animation ssBlink → RN: Animated.loop with Animated.sequence
 export function AlertBar({
   dir,
   dist,
@@ -226,9 +200,6 @@ export function TabBar({
   );
 }
 
-// ─────────────────────────────────────────────
-// SMALL SHARED PIECES
-// ─────────────────────────────────────────────
 export function Logo({ size = 28 }: { size?: number }) {
   return (
     <View style={ss.logoRow}>
@@ -323,10 +294,6 @@ function CameraView({
     </View>
   );
 }
-
-// ─────────────────────────────────────────────
-// SCREENS — ONBOARDING
-// ─────────────────────────────────────────────
 
 // 1 · VISION
 export function VisionScreen({
@@ -500,8 +467,6 @@ export function HomeScreen({
     <Screen style={{ gap: 18 }}>
       <Logo size={24} />
       <Text style={ss.homeHeading}>Юу хийх вэ?</Text>
-      {/* Web used CSS grid 1fr 1fr. RN doesn't have CSS grid.
-          Trick: wrap every 2 items in a row View */}
       <View style={{ flex: 1, gap: 14 }}>
         <View style={ss.featureRow}>
           <View style={{ flex: 1 }}>
@@ -555,10 +520,6 @@ export function HomeScreen({
     </Screen>
   );
 }
-
-// ─────────────────────────────────────────────
-// SCREENS — FEATURES
-// ─────────────────────────────────────────────
 
 // 5 · OBSTACLE
 const OBS_DATA = [
@@ -615,7 +576,6 @@ export function ObstacleScreen({ onBack }: { onBack: () => void }) {
 // distance overlay inside CameraView
 function DistTag({ dir, dist }: { dir: string; dist: number }) {
   return (
-    // position:'absolute' works the same in RN — parent needs position:'relative' (CameraView has it)
     <View style={ss.distTagWrap}>
       <View style={ss.distDir}>
         <Text style={ss.distDirText}>{dir}</Text>
@@ -649,8 +609,6 @@ export function RecognizeScreen({ onBack }: { onBack: () => void }) {
       <TopBar title="Таних систем" onBack={onBack} />
       <CameraView height={330}>
         {run ? (
-          // Web used position:absolute with % values.
-          // RN supports % in position too — works the same here.
           <>
             <View style={ss.recognizeBox} />
             <View style={ss.recognizeTag}>
@@ -690,10 +648,6 @@ export function RecognizeScreen({ onBack }: { onBack: () => void }) {
 }
 
 // 8 · LOCATION
-const LOC = {
-  name: "Энхтайваны өргөн чөлөө",
-  sub: "Сүхбаатарын талбайгаас 200 метрт",
-};
 export function LocationScreen({ onBack }: { onBack: () => void }) {
   const { addressText, errorMessage, handleGetLocation, loading } =
     useSelfLocationTracker();
@@ -734,12 +688,6 @@ export function LocationScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-// ─────────────────────────────────────────────
-// STYLESHEET
-// All web style={{ ... }} objects live here now.
-// StyleSheet.create() is the same as a CSS-in-JS object but RN validates
-// it at startup and flattens it for performance.
-// ─────────────────────────────────────────────
 export const ss = StyleSheet.create({
   // wrappers
   screen: { flex: 1, padding: T.pad, backgroundColor: T.bg },
