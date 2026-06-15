@@ -121,18 +121,26 @@ class SpeechManager {
       const sanitized = sanitizeForChimege(text);
       if (!sanitized) return;
 
+      const voiceId = CHIMEGE_VOICES[s.gender];
+      if (__DEV__) console.log(`[Voice] TTS → voice-id=${voiceId} speed=${s.rate} text="${sanitized.slice(0, 40)}"`);
+
       const response = await fetch(CHIMEGE_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'text/plain',
           'Token': VOICE_CONFIG.chimegeToken,
-          'voice-id': CHIMEGE_VOICES[s.gender],
+          'voice-id': voiceId,
           'speed': String(s.rate),
         },
         body: sanitized,
       });
 
-      if (!response.ok) throw new Error(`Chimege ${response.status}`);
+      if (__DEV__) console.log(`[Voice] TTS ← status=${response.status} size=${response.headers.get('content-length') ?? '?'}`);
+      if (!response.ok) {
+        const body = await response.text();
+        if (__DEV__) console.log(`[Voice] TTS error body: ${body}`);
+        throw new Error(`Chimege ${response.status}: ${body}`);
+      }
 
       const buffer = await response.arrayBuffer();
       const base64 = arrayBufferToBase64(buffer);
