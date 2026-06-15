@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Screen } from "@/components/Screen";
 import { router } from "expo-router";
-import { TopBar, ss } from "@/components/ui-generated/_comps";
+import { TopBar, ss, BackButton } from "@/components/ui-generated/_comps";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button } from "@/components/ui-generated/_comps";
 import { BalancerProvider } from "@/providers/useBalancer";
@@ -12,6 +12,8 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import type { CameraType } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
 import { playSoundFile, stopAllAudio } from "@/services/audio";
+import { detectTextViaOpenAI } from "@/components/Recognition/detectTextViaOpenAI";
+import { useAccessibility } from "@/providers/AccesibilityProvider";
 
 const PRELOADED_AUDIO = {
   instruction: require("@/assets/haptics/tilt-device-instruction.mp3"),
@@ -93,6 +95,11 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
   const foundTextRef = useRef(false);
   const { checkSpelling, reset: resetSpellCheck } = useBolorSpellCheck();
   const { stop, speak } = useVoice();
+  const { setScroller } = useAccessibility();
+  const textScrollRef = useRef<ScrollView | null>(null);
+  const textOffsetRef = useRef(0);
+  const textViewportHeightRef = useRef(0);
+  const textContentHeightRef = useRef(0);
   const balanceDisabled = st !== "idle";
 
   useEffect(() => {
@@ -101,6 +108,22 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
       void stopAllAudio();
     };
   }, [stop]);
+
+  // Текст гарсан үед 2 хурууны scroll-ийг текст панель руу холбоно
+  useEffect(() => {
+    if (!ocrText) return;
+    textOffsetRef.current = 0;
+    setScroller((dy) => {
+      const maxOffset = Math.max(
+        0,
+        textContentHeightRef.current - textViewportHeightRef.current,
+      );
+      const next = Math.min(maxOffset, Math.max(0, textOffsetRef.current + dy));
+      textOffsetRef.current = next;
+      textScrollRef.current?.scrollTo({ y: next, animated: false });
+    });
+    return () => setScroller(null);
+  }, [ocrText, setScroller]);
 
   const captureAndOcr = useCallback(async () => {
     if (
@@ -128,18 +151,17 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
         return;
       }
 
-      const base64 = await preparePhotoForOcr(photo.uri);
-      const text = await runOcr(base64);
-      console.log("[OCR] Parsed text:", text);
+      // OpenAI vision-оор гол текстийг уншина (хуучин OCR.space + Bolor-ийг орлоно)
+      setSt("reading");
+      const text = await detectTextViaOpenAI(photo.uri);
+      console.log("[OCR] AI text:", text);
 
-      if (!text.trim()) {
+      if (!text) {
         setSt("idle");
         return;
       }
 
-      setSt("correcting");
-      const correctedText = await correctOcrText(text);
-      const nextText = prepareTextForSpeech(correctedText || text);
+      const nextText = prepareTextForSpeech(text);
 
       if (!nextText) {
         setSt("idle");
@@ -237,23 +259,46 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
   return (
     <BalancerProvider disabled={balanceDisabled}>
       <Screen style={{ gap: 5 }}>
-        <TopBar title="Текст унших" onBack={onBack} />
+        <BackButton
+          onBack={() => {
+            stop();
+            void stopAllAudio();
+            router.back();
+          }}
+          style={styles.backBtn}
+          labelStyle={styles.backBtnLabel}
+        />
         <View style={styles.cameraWrap}>
-          <CameraView
-            ref={cameraRef}
-            style={styles.camera}
-            facing={cameraFacing}
-            onCameraReady={() => setCameraReady(true)}
-          />
           {ocrText ? (
+            // Текст гарсан үед камерыг далдалж цэвэр scroll панель харуулна
             <ScrollView
-              style={styles.detectedTextOverlay}
+              ref={textScrollRef}
+              style={styles.textPanel}
               contentContainerStyle={styles.detectedTextContent}
+              scrollEnabled
+              nestedScrollEnabled
               showsVerticalScrollIndicator
+              scrollEventThrottle={16}
+              onLayout={(e) => {
+                textViewportHeightRef.current = e.nativeEvent.layout.height;
+              }}
+              onContentSizeChange={(_, height) => {
+                textContentHeightRef.current = height;
+              }}
+              onScroll={(e) => {
+                textOffsetRef.current = e.nativeEvent.contentOffset.y;
+              }}
             >
               <Text style={styles.detectedText}>{ocrText}</Text>
             </ScrollView>
-          ) : null}
+          ) : (
+            <CameraView
+              ref={cameraRef}
+              style={styles.camera}
+              facing={cameraFacing}
+              onCameraReady={() => setCameraReady(true)}
+            />
+          )}
         </View>
         {/* Товчнуудыг доош түлхэж, дээрх дуут командын товчтой давхцахаас сэргийлнэ */}
         <View style={{ flex: 1 }} />
@@ -266,22 +311,13 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
                 foundTextRef.current = false;
                 setOcrText("");
                 setSt("idle");
+                setCameraReady(false);
                 setScanVersion((current) => current + 1);
               }}
-            />{" "}
-            <Button label={"Унших"} height={80} onPress={ReadAloud}></Button>
+            />
           </View>
           <View style={{ flex: 1 }}>
-            <Button
-              audioSource={PRELOADED_AUDIO.back}
-              label="Буцах"
-              height={80}
-              onPress={() => {
-                stop();
-                void stopAllAudio();
-                router.back();
-              }}
-            />
+            <Button label={"Унших"} height={80} onPress={ReadAloud} />
           </View>
         </View>
       </Screen>
@@ -300,12 +336,22 @@ const styles = StyleSheet.create({
   camera: {
     flex: 1,
   },
-  detectedTextOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.72)",
+  textPanel: {
+    flex: 1,
+    backgroundColor: "#000",
   },
+  backBtn: {
+    alignSelf: "flex-start",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  backBtnLabel: { color: "#000" },
   detectedTextContent: {
     padding: 18,
+    paddingBottom: 36,
   },
   detectedText: {
     color: "#fff",

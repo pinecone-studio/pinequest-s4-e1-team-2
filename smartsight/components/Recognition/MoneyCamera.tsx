@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { ActivityIndicator, Linking, StyleSheet, TouchableOpacity, View, Text } from "react-native";
 import { useRouter } from "expo-router";
 import { useMoneyDetection } from "./useMoneyDetection";
+import { BackButton } from "@/components/ui-generated/_comps";
 
 function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
   return (
@@ -54,9 +55,7 @@ export default function MoneyCamera() {
         </View>
       ) : null}
 
-      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-        <Text style={styles.backBtnText}>Буцах</Text>
-      </TouchableOpacity>
+      <BackButton onBack={() => router.back()} style={styles.backBtn} />
     </View>
   );
 }
@@ -94,5 +93,4 @@ const styles = StyleSheet.create({
     position: "absolute", top: 50, left: 20,
     backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
   },
-  backBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });

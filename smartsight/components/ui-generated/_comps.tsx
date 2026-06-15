@@ -13,6 +13,7 @@ import {
   Dimensions,
   Platform,
   type StyleProp,
+  type TextStyle,
   type ViewStyle,
 } from "react-native";
 import { router } from "expo-router";
@@ -252,10 +253,12 @@ const BACK_AUDIO = require("@/assets/haptics/backbtn.mp3");
 export function BackButton({
   onBack,
   style,
+  labelStyle,
   label = "Буцах",
 }: {
   onBack: () => void;
   style?: StyleProp<ViewStyle>;
+  labelStyle?: StyleProp<TextStyle>;
   label?: string;
 }) {
   const rawId = React.useId().replace(/:/g, "-");
@@ -281,7 +284,7 @@ export function BackButton({
           highlighted && { borderColor: "#45FFF7", borderWidth: 2 },
         ]}
       >
-        <Text style={ss.backBtnLabel}>{label}</Text>
+        <Text style={[ss.backBtnLabel, labelStyle]}>{label}</Text>
       </TouchableOpacity>
     </AccessibleElement>
   );

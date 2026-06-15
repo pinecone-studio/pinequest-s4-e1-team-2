@@ -66,7 +66,7 @@ function sanitizeForChimege(text: string): string {
     .replace(/[^Ѐ-ӿ\s?!.,\-'":]/g, ' ') // тоо/латин үсгийг хасна (Chimege зөвшөөрдөггүй)
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 300);
+    .slice(0, 600);
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
