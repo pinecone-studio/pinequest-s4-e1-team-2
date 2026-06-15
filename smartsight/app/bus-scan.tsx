@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Vibration } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { BackButton } from '@/components/ui-generated/_comps';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { speech } from '@/src/voice';
@@ -94,9 +95,7 @@ export default function BusScanScreen() {
     <View style={s.root}>
       <CameraView ref={cameraRef} style={s.camera} autofocus="on" />
 
-      <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-        <Text style={s.backText}>Буцах</Text>
-      </TouchableOpacity>
+      <BackButton onBack={() => router.back()} style={s.backBtn} />
 
       {/* Target info */}
       {targetBus ? (

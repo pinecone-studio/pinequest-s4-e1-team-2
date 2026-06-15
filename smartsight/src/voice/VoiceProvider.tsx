@@ -11,7 +11,8 @@ import {
 import { speech, initAudio } from './speechManager';
 import * as vibrate from './haptics';
 
-const STORAGE_KEY = 'ss_voice_settings';
+// v3: хадгалсан эрэгтэй gender-ийг хүчингүй болгож, эмэгтэй default-ыг хүчээр ачаална
+const STORAGE_KEY = 'ss_voice_settings_v3';
 
 type VoiceContextValue = {
   settings: VoiceSettings;
@@ -30,11 +31,15 @@ export function VoiceProvider({
 
   useEffect(() => { initAudio(); }, []);
 
-  // Хадгалсан тохиргоог ачаална
+  // Хадгалсан тохиргоог ачаална. gender-ийг ХАДГАЛСНААС ҮЛ ХАМААРАН үргэлж эмэгтэй
+  // болгоно (хэрэглэгч бүх дуу хоолойг эмэгтэй байхыг хүссэн).
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
-      .then((v) => { if (v) setState((s) => ({ ...s, ...JSON.parse(v) })); })
-      .catch(() => {});
+      .then((v) => {
+        const saved = v ? JSON.parse(v) : {};
+        setState((s) => ({ ...s, ...saved, gender: 'female' }));
+      })
+      .catch(() => setState((s) => ({ ...s, gender: 'female' })));
   }, []);
 
   // App-аас ирэх Mode A/B-г тугана

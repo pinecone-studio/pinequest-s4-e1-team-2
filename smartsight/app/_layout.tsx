@@ -33,6 +33,7 @@ export default function RootLayout() {
                   <Stack.Screen name="home" />
                   <Stack.Screen name="obstacle" />
                   <Stack.Screen name="recognize" />
+                  <Stack.Screen name="money" />
                   <Stack.Screen name="ocr" />
                   <Stack.Screen name="location" />
                   <Stack.Screen name="room-search" />

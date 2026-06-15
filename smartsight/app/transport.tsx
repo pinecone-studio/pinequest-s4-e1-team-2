@@ -1,8 +1,9 @@
-import React, { useRef } from "react";
+import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
-import { speech } from "@/src/voice";
+import { Button } from "@/components/ui-generated/_comps";
+import { AccessibleElement } from "@/components/AccessibleElement";
+import { useAccessibility } from "@/providers/AccesibilityProvider";
 
 const OPTIONS = [
   {
@@ -25,53 +26,52 @@ const OPTIONS = [
   },
 ] as const;
 
-const DOUBLE_TAP_MS = 350;
-
 export default function TransportScreen() {
   const router = useRouter();
-  const lastTapRef = useRef<{ id: string; time: number } | null>(null);
-
-  React.useEffect(() => {
-    setTimeout(() => {
-      speech.speak("Зам тээвэр. Сонголтоо дарна уу");
-    }, 500);
-  }, []);
-
-  const handleTap = (opt: (typeof OPTIONS)[number]) => {
-    const now = Date.now();
-    const last = lastTapRef.current;
-
-    if (last?.id === opt.id && now - last.time <= DOUBLE_TAP_MS) {
-      lastTapRef.current = null;
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.push(opt.route as any);
-    } else {
-      lastTapRef.current = { id: opt.id, time: now };
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      speech.speak(opt.label);
-    }
-  };
+  const { activeElementId } = useAccessibility();
+  // Instance тус бүрд давтагдашгүй угтвар — олон instance mount хэвээр үлдвэл
+  // тогтмол id мөргөлдөж register/unregister гүйлгэлддэг асуудлаас сэргийлнэ.
+  const uid = React.useId().replace(/:/g, "-");
 
   return (
     <View style={s.root}>
-      <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-        <Text style={s.backText}>Буцах</Text>
-      </TouchableOpacity>
-
       <Text style={s.title}>Зам тээвэр</Text>
 
       <View style={s.list}>
-        {OPTIONS.map((opt) => (
-          <TouchableOpacity
-            key={opt.id}
-            style={s.card}
-            onPress={() => handleTap(opt)}
-            activeOpacity={0.7}>
-            <Text style={s.cardLabel}>{opt.label}</Text>
-            <Text style={s.cardSub}>{opt.sub}</Text>
-          </TouchableOpacity>
-        ))}
+        {OPTIONS.map((opt) => {
+          const accessibleId = `transport-${uid}-${opt.id}`;
+          const highlighted = activeElementId === accessibleId;
+
+          return (
+            <AccessibleElement
+              key={opt.id}
+              id={accessibleId}
+              label={opt.label}
+              onActivate={() => router.push(opt.route as any)}
+            >
+              <TouchableOpacity
+                style={[s.card, highlighted && s.cardActive]}
+                onPress={() => router.push(opt.route as any)}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel={opt.label}
+                activeOpacity={0.7}>
+                <Text style={s.cardLabel}>{opt.label}</Text>
+                <Text style={s.cardSub}>{opt.sub}</Text>
+              </TouchableOpacity>
+            </AccessibleElement>
+          );
+        })}
       </View>
+
+      <View style={{ flex: 1 }} />
+
+      <Button
+        label="Буцах"
+        height={88}
+        audioSource={require("@/assets/haptics/backbtn.mp3")}
+        onPress={() => router.back()}
+      />
     </View>
   );
 }
@@ -79,9 +79,10 @@ export default function TransportScreen() {
 const s = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#fff",
     paddingTop: 60,
     paddingHorizontal: 20,
+    paddingBottom: 24,
   },
   backBtn: {
     position: "absolute",
@@ -93,9 +94,8 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
   },
-  backText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   title: {
-    color: "#fff",
+    color: "#0A0A0A",
     fontSize: 28,
     fontWeight: "bold",
     textAlign: "center",
@@ -104,12 +104,13 @@ const s = StyleSheet.create({
   },
   list: { gap: 16 },
   card: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "#111",
     borderRadius: 16,
     padding: 24,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.15)",
   },
+  cardActive: { borderColor: "#45FFF7", borderWidth: 2 },
   cardLabel: { color: "#fff", fontSize: 24, fontWeight: "bold" },
   cardSub: { color: "rgba(255,255,255,0.6)", fontSize: 16, marginTop: 6 },
 });

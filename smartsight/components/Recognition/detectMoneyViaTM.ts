@@ -32,11 +32,26 @@ async function ensureModel(): Promise<boolean> {
   }
 }
 
-async function uriToFloat32(uri: string): Promise<Float32Array | null> {
+async function uriToUint8(uri: string, width?: number, height?: number): Promise<Uint8Array | null> {
   try {
+    // Teachable Machine шиг: эхлээд төвөөс квадрат тайрч (center-crop) дараа 224 болгоно.
+    // Шууд сунгавал дэвсгэртийн харьцаа гажиж буруу таьдаг.
+    const actions: ImageManipulator.Action[] = [];
+    if (width && height) {
+      const side = Math.min(width, height);
+      actions.push({
+        crop: {
+          originX: Math.floor((width - side) / 2),
+          originY: Math.floor((height - side) / 2),
+          width: side,
+          height: side,
+        },
+      });
+    }
+    actions.push({ resize: { width: INPUT_SIZE, height: INPUT_SIZE } });
     const resized = await ImageManipulator.manipulateAsync(
       uri,
-      [{ resize: { width: INPUT_SIZE, height: INPUT_SIZE } }],
+      actions,
       { format: ImageManipulator.SaveFormat.JPEG }
     );
     const data = await Skia.Data.fromURI(resized.uri);
@@ -49,11 +64,12 @@ async function uriToFloat32(uri: string): Promise<Float32Array | null> {
       alphaType: AlphaType.Unpremul,
     }) as Uint8Array | null;
     if (!pixels) return null;
-    const rgb = new Float32Array(INPUT_SIZE * INPUT_SIZE * 3);
+    // Quantized (uint8) model — пикселийг [0-255] хэвээр, RGBA→RGB болгоно
+    const rgb = new Uint8Array(INPUT_SIZE * INPUT_SIZE * 3);
     for (let i = 0; i < INPUT_SIZE * INPUT_SIZE; i++) {
-      rgb[i * 3]     = pixels[i * 4]     / 255;
-      rgb[i * 3 + 1] = pixels[i * 4 + 1] / 255;
-      rgb[i * 3 + 2] = pixels[i * 4 + 2] / 255;
+      rgb[i * 3]     = pixels[i * 4];
+      rgb[i * 3 + 1] = pixels[i * 4 + 1];
+      rgb[i * 3 + 2] = pixels[i * 4 + 2];
     }
     return rgb;
   } catch {
@@ -61,23 +77,26 @@ async function uriToFloat32(uri: string): Promise<Float32Array | null> {
   }
 }
 
-export async function detectMoneyViaTM(uri: string): Promise<number | null> {
+export async function detectMoneyViaTM(uri: string, width?: number, height?: number): Promise<number | null> {
   if (!uri) return null;
   try {
     if (!(await ensureModel()) || !model) return null;
-    const input = await uriToFloat32(uri);
+    const input = await uriToUint8(uri, width, height);
     if (!input) return null;
     const outputs = model.runSync([input.buffer as ArrayBuffer]);
-    const probs = new Float32Array(outputs[0]);
-    let maxProb = 0;
+    // Quantized (uint8) гаралт — утга бүр 0-255, магадлал = utga / 255
+    const probsU8 = new Uint8Array(outputs[0]);
+    let maxU8 = 0;
     let maxIdx = -1;
-    for (let i = 0; i < probs.length; i++) {
-      if (probs[i] > maxProb) {
-        maxProb = probs[i];
+    for (let i = 0; i < probsU8.length; i++) {
+      if (probsU8[i] > maxU8) {
+        maxU8 = probsU8[i];
         maxIdx = i;
       }
     }
-    // Зөвхөн 0.8-аас их магадлалтай үед л дүнг буцаана, эс бол танихгүй (null)
+    const maxProb = maxU8 / 255;
+    console.log(`[TM] idx=${maxIdx} prob=${maxProb.toFixed(2)} → ${LABELS[maxIdx]}  all=[${Array.from(probsU8).map((v) => (v / 255).toFixed(2)).join(",")}]`);
+    // Зөвхөн threshold-оос их магадлалтай үед л дүнг буцаана, эс бол танихгүй (null)
     if (maxProb <= CONFIDENCE_THRESHOLD || maxIdx === -1) return null;
     return LABELS[maxIdx] ?? null;
   } catch {
