@@ -45,7 +45,7 @@ export default function HomePage() {
 // 4 · HOME
 const FEATURES = [
   { id: "obstacle", label: "Саад мэдрэгч" },
-  { id: "recognize", label: "Танилтын систем" },
+  { id: "recognize", label: "Мөнгө таних" },
   { id: "ocr", label: "Текст унших" },
   { id: "room-search", label: "Өрөө хайх" },
   { id: "transport", label: "Зам тээвэр" },

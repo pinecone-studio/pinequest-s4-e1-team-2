@@ -1,9 +1,8 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useEffect, useRef } from "react";
-import { ActivityIndicator, PanResponder, StyleSheet, TouchableOpacity, View, Text } from "react-native";
+import { useEffect } from "react";
+import { ActivityIndicator, Linking, StyleSheet, TouchableOpacity, View, Text } from "react-native";
 import { useRouter } from "expo-router";
-import { BackButton } from "@/components/ui-generated/_comps";
-import { useMoneyDetection } from "@/components/Recognition/useMoneyDetection";
+import { useMoneyDetection } from "./useMoneyDetection";
 
 function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
   return (
@@ -16,7 +15,7 @@ function PermissionPrompt({ onRequest }: { onRequest: () => void }) {
   );
 }
 
-export default function MoneyPage() {
+export default function MoneyCamera() {
   const [permission, requestPermission] = useCameraPermissions();
   const { cameraRef, result, status } = useMoneyDetection();
   const router = useRouter();
@@ -27,30 +26,18 @@ export default function MoneyPage() {
     }
   }, [permission, requestPermission]);
 
-  // Зүүнээс баруун руу шудрах = буцах (Таних систем рүү)
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 25 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
-      onPanResponderRelease: (_, g) => {
-        if (g.dx > 80) {
-          router.back();
-        }
-      },
-    })
-  ).current;
+  const handleRequest = async () => {
+    const res = await requestPermission();
+    if (!res.granted && !res.canAskAgain) Linking.openSettings();
+  };
 
-  if (!permission) {
-    return <View style={styles.center} />;
-  }
-
-  if (!permission.granted) {
-    return <PermissionPrompt onRequest={requestPermission} />;
-  }
+  if (!permission) return <View style={styles.center} />;
+  if (!permission.granted) return <PermissionPrompt onRequest={handleRequest} />;
 
   const isUnknown = status === "unknown";
 
   return (
-    <View style={styles.container} {...panResponder.panHandlers}>
+    <View style={styles.container}>
       <CameraView ref={cameraRef} style={styles.camera} autofocus="on" />
 
       {status === "scanning" && !result && (
@@ -67,7 +54,9 @@ export default function MoneyPage() {
         </View>
       ) : null}
 
-      <BackButton onBack={() => router.back()} style={styles.backBtn} label="← Буцах" />
+      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <Text style={styles.backBtnText}>Буцах</Text>
+      </TouchableOpacity>
     </View>
   );
 }
