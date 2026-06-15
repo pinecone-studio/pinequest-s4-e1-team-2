@@ -3,10 +3,13 @@ import { Vibration } from "react-native";
 import { CameraView } from "expo-camera";
 import { speech } from "@/src/voice";
 import { formatMoney } from "./classifyRecognition";
-import { detectMoneyViaTM } from "./detectMoneyViaTM";
+// Хуучин on-device Teachable Machine хувилбар (хадгалсан, ашиглахгүй):
+// import { detectMoneyViaTM } from "./detectMoneyViaTM";
+import { detectMoneyViaOpenAI } from "./detectMoneyViaOpenAI";
 
-const SCAN_INTERVAL_MS = 500;
-const CONSISTENCY_THRESHOLD = 2; // 2 удаа дараалан ижил дэвсгэрт = баталгаатай
+// OpenAI API дуудлага тутамд ~1-2с, мөн зардал хэмнэх тул удаан интервал
+const SCAN_INTERVAL_MS = 2500;
+const CONSISTENCY_THRESHOLD = 1; // OpenAI нарийвчлалтай тул нэг таниулсан даруйд зарлана
 
 export type MoneyStatus = "idle" | "scanning" | "money" | "unknown";
 
@@ -37,7 +40,7 @@ export function useMoneyDetection() {
     try {
       const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 1, shutterSound: false });
       if (!photo) return;
-      const denomination = await detectMoneyViaTM(photo.uri, photo.width, photo.height);
+      const denomination = await detectMoneyViaOpenAI(photo.uri);
       if (denomination !== null) {
         // Тогтвортой байдал — 2 удаа дараалан ижил дэвсгэрт таарвал л баталгаажна
         if (denomination === candidateRef.current) {

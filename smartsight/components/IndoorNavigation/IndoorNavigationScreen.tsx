@@ -8,7 +8,6 @@ import {
   View,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { router } from "expo-router";
 
 import navigationData from "@/assets/floorplans/gurvan-gol-floor-3.navigation.json";
 import {
@@ -24,7 +23,7 @@ import { useVoice } from "@/src/voice";
 import { useAccessibility } from "@/providers/AccesibilityProvider";
 import { Button } from "@/components/ui-generated/_comps";
 import { DestinationPicker } from "./DestinationPicker";
-import { RouteInstructions } from "./RouteInstructions";
+import { DoorRecognitionCamera } from "@/components/Recognition/DoorRecognitionCamera";
 
 const data = navigationData as NavigationData;
 
@@ -154,13 +153,9 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
     // selectVersion-ийг dep-д оруулснаар ижил өрөө дахин сонгоход дахин уншина
   }, [selectVersion, instructions, selectedRoom, speak]);
 
-  const startRoomRecognition = () => {
-    if (!selectedRoom) return;
-    router.push({
-      pathname: "/recognize",
-      params: { targetRoom: selectedRoom.name },
-    });
-  };
+  // Зорьсон өрөө дугаартай (тоон) эсэх — тоот таних камер харуулах эсэхэд
+  const targetDoorNumber =
+    selectedRoom && /^\d+$/.test(selectedRoom.name) ? selectedRoom.name : null;
 
   return (
     <ScrollView
@@ -228,6 +223,13 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
 
       {startAnchor ? (
         <DestinationPicker rooms={data.rooms} onSelect={handleSelectRoom} />
+      ) : null}
+
+      {targetDoorNumber ? (
+        <DoorRecognitionCamera
+          targetName={targetDoorNumber}
+          instructions={instructions}
+        />
       ) : null}
 
       <Button
