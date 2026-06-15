@@ -5,7 +5,8 @@ import TextRecognition from "@react-native-ml-kit/text-recognition";
 import { speech } from "@/src/voice";
 import { detectDoorNumbers, detectDoorNumberValues } from "./classifyRecognition";
 
-const SCAN_INTERVAL_MS = 800;
+// Зураг авах бүрт preview түр царцдаг тул интервалыг сунгаж preview харагдах зав өгнө
+const SCAN_INTERVAL_MS = 1800;
 
 export function useDoorScan(targetNumber: string | null) {
   const cameraRef = useRef<CameraView>(null);
@@ -19,7 +20,7 @@ export function useDoorScan(targetNumber: string | null) {
     if (!cameraRef.current || busyRef.current || arrivedRef.current) return;
     busyRef.current = true;
     try {
-      const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 1, shutterSound: false });
+      const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 0.5, shutterSound: false });
       if (!photo) return;
       const ocr = await TextRecognition.recognize(photo.uri);
       const values = detectDoorNumberValues(ocr.blocks);

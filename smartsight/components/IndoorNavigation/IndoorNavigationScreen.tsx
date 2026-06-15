@@ -158,6 +158,7 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
     selectedRoom && /^\d+$/.test(selectedRoom.name) ? selectedRoom.name : null;
 
   return (
+    <View style={{ flex: 1 }}>
     <ScrollView
       ref={scrollRef}
       onScroll={handleScroll}
@@ -225,13 +226,6 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
         <DestinationPicker rooms={data.rooms} onSelect={handleSelectRoom} />
       ) : null}
 
-      {targetDoorNumber ? (
-        <DoorRecognitionCamera
-          targetName={targetDoorNumber}
-          instructions={instructions}
-        />
-      ) : null}
-
       <Button
         label="Буцах"
         height={88}
@@ -239,6 +233,16 @@ export function IndoorNavigationScreen({ onBack }: { onBack: () => void }) {
         onPress={onBack}
       />
     </ScrollView>
+
+      {/* Тоот таних — бүтэн дэлгэцийн overlay (камер найдвартай харагдана) */}
+      {targetDoorNumber ? (
+        <DoorRecognitionCamera
+          targetName={targetDoorNumber}
+          instructions={instructions}
+          onClose={() => setSelectedRoom(null)}
+        />
+      ) : null}
+    </View>
   );
 }
 

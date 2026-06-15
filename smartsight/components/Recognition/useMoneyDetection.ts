@@ -2,7 +2,6 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { Vibration } from "react-native";
 import { CameraView } from "expo-camera";
 import { speech } from "@/src/voice";
-import { formatMoney } from "./classifyRecognition";
 // Хуучин on-device Teachable Machine хувилбар (хадгалсан, ашиглахгүй):
 // import { detectMoneyViaTM } from "./detectMoneyViaTM";
 import { detectMoneyViaOpenAI } from "./detectMoneyViaOpenAI";
@@ -16,8 +15,8 @@ export type MoneyStatus = "idle" | "scanning" | "money" | "unknown";
 export function useMoneyDetection() {
   const cameraRef = useRef<CameraView>(null);
   const busyRef = useRef(false);
-  const lastAnnouncedRef = useRef<number | null>(null);
-  const candidateRef = useRef<number | null>(null);
+  const lastAnnouncedRef = useRef<string | null>(null);
+  const candidateRef = useRef<string | null>(null);
   const candidateCountRef = useRef(0);
   const spokeUnknownRef = useRef(false);
   const [result, setResult] = useState("");
@@ -40,29 +39,29 @@ export function useMoneyDetection() {
     try {
       const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 1, shutterSound: false });
       if (!photo) return;
-      const denomination = await detectMoneyViaOpenAI(photo.uri);
-      if (denomination !== null) {
-        // Тогтвортой байдал — 2 удаа дараалан ижил дэвсгэрт таарвал л баталгаажна
-        if (denomination === candidateRef.current) {
+      // OpenAI монгол ярианы текст буцаана (ж: "арван мянган төгрөг") эс бол null
+      const phrase = await detectMoneyViaOpenAI(photo.uri);
+      if (phrase !== null) {
+        // Тогтвортой байдал — N удаа дараалан ижил хариу таарвал л баталгаажна
+        if (phrase === candidateRef.current) {
           candidateCountRef.current += 1;
         } else {
-          candidateRef.current = denomination;
+          candidateRef.current = phrase;
           candidateCountRef.current = 1;
         }
         if (candidateCountRef.current < CONSISTENCY_THRESHOLD) return;
 
         spokeUnknownRef.current = false;
-        const text = formatMoney(denomination);
-        setResult(text);
+        setResult(phrase);
         setStatus("money");
-        if (denomination !== lastAnnouncedRef.current) {
-          lastAnnouncedRef.current = denomination;
+        if (phrase !== lastAnnouncedRef.current) {
+          lastAnnouncedRef.current = phrase;
           Vibration.vibrate([0, 100, 50, 100, 50, 100]);
-          speech.speak(text);
-          setTimeout(() => speech.speak(text), 1500);
+          // OpenAI-ийн буцаасан текстийг Chimege-ээр хэлнэ
+          speech.speak(phrase);
+          setTimeout(() => speech.speak(phrase), 1500);
         }
       } else {
-        // threshold-оос дээш ямар ч мөнгөтэй таарсангүй
         candidateRef.current = null;
         candidateCountRef.current = 0;
         lastAnnouncedRef.current = null;
