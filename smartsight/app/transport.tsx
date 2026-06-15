@@ -11,18 +11,21 @@ const OPTIONS = [
     label: "Байршил",
     sub: "Одоо хаана байгааг мэдэх",
     route: "/location",
+    audio: require("@/assets/haptics/locationbtn.mp3"),
   },
   {
     id: "bus-route",
     label: "Автобус чиглэл",
     sub: "Хаанаас хааш явах",
     route: "/bus-route",
+    audio: require("@/assets/haptics/busroutebtn.mp3"),
   },
   {
     id: "nearby-stops",
     label: "Ойр буудал",
     sub: "Ойролцоох буудлууд",
     route: "/nearby-stops",
+    audio: require("@/assets/haptics/nearbusstopbtn.mp3"),
   },
 ] as const;
 
@@ -48,6 +51,7 @@ export default function TransportScreen() {
               id={accessibleId}
               label={opt.label}
               onActivate={() => router.push(opt.route as any)}
+              audioSource={opt.audio}
             >
               <TouchableOpacity
                 style={[s.card, highlighted && s.cardActive]}
@@ -55,7 +59,8 @@ export default function TransportScreen() {
                 accessible
                 accessibilityRole="button"
                 accessibilityLabel={opt.label}
-                activeOpacity={0.7}>
+                activeOpacity={0.7}
+              >
                 <Text style={s.cardLabel}>{opt.label}</Text>
                 <Text style={s.cardSub}>{opt.sub}</Text>
               </TouchableOpacity>

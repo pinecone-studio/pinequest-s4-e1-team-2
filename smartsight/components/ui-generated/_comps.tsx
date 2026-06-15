@@ -690,9 +690,9 @@ export function RecognizeScreen({ onBack }: { onBack: () => void }) {
 }
 
 // 8 · LOCATION
-const LOC = {
-  name: "Энхтайваны өргөн чөлөө",
-  sub: "Сүхбаатарын талбайгаас 200 метрт",
+const preloaded = {
+  repeat: require("@/assets/haptics/repeatbtn.mp3"),
+  findlocation: require("@/assets/haptics/findlocationbtn.mp3"),
 };
 export function LocationScreen({ onBack }: { onBack: () => void }) {
   const { addressText, errorMessage, handleGetLocation, loading } =
@@ -722,6 +722,7 @@ export function LocationScreen({ onBack }: { onBack: () => void }) {
       <Button
         label={addressText ? "Давтах" : "Байршлаа мэдэх"}
         height={92}
+        audioSource={addressText ? preloaded.repeat : preloaded.findlocation}
         onPress={handleGetLocation}
       />
       <Button
