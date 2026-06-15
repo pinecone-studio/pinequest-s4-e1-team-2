@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 
 import { useVoice, Strings } from "@/src/voice";
 import { Button } from "@/components/ui-generated/_comps";
+import { AccessibleElement } from "@/components/AccessibleElement";
 
 export default function SettingsScreen() {
   const { settings, setSettings, speak, vibrate } = useVoice();
@@ -44,53 +45,58 @@ export default function SettingsScreen() {
   return (
     <View style={s.root}>
       {/* Voice on/off */}
-      <View
-        style={s.row}
-        accessible
-        accessibilityRole="switch"
-        accessibilityLabel={`Дуу хоолой, ${settings.enabled ? "асаалттай" : "унтраалттай"}`}
+      <AccessibleElement
+        id="settings-voice-toggle"
+        label={`Дуу хоолой, ${settings.enabled ? "асаалттай" : "унтраалттай"}. Идэвхжүүлэхэд солино.`}
+        onActivate={toggleEnabled}
       >
-        <Text style={s.rowLabel}>Дуу хоолой</Text>
-        <Switch
-          value={settings.enabled}
-          onValueChange={toggleEnabled}
-          thumbColor="#fff"
-          trackColor={{ false: "#444", true: "#34C759" }}
-          style={{ marginTop: 23 }}
-        />
-      </View>
+        <View style={s.row}>
+          <Text style={s.rowLabel}>Дуу хоолой</Text>
+          <Switch
+            value={settings.enabled}
+            onValueChange={toggleEnabled}
+            thumbColor="#fff"
+            trackColor={{ false: "#444", true: "#34C759" }}
+            style={{ marginTop: 23 }}
+          />
+        </View>
+      </AccessibleElement>
 
       <View style={s.divider} />
 
       {/* Gender */}
       <Text style={s.section}>ХООЛОЙН ХҮЙС</Text>
       <View style={s.segRow}>
-        <TouchableOpacity
-          style={[s.seg, settings.gender === "male" && s.segActive]}
-          onPress={() => settings.gender !== "male" && toggleGender()}
-          accessibilityRole="radio"
-          accessibilityState={{ checked: settings.gender === "male" }}
-          accessibilityLabel="Эрэгтэй хоолой"
+        <AccessibleElement
+          id="settings-gender-male"
+          label="Эрэгтэй хоолой"
+          onActivate={() => settings.gender !== "male" && toggleGender()}
+          style={{ flex: 1 }}
         >
-          <Text
-            style={[s.segText, settings.gender === "male" && s.segTextActive]}
+          <TouchableOpacity
+            style={[s.seg, settings.gender === "male" && s.segActive]}
+            onPress={() => settings.gender !== "male" && toggleGender()}
           >
-            Эрэгтэй
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[s.seg, settings.gender === "female" && s.segActive]}
-          onPress={() => settings.gender !== "female" && toggleGender()}
-          accessibilityRole="radio"
-          accessibilityState={{ checked: settings.gender === "female" }}
-          accessibilityLabel="Эмэгтэй хоолой"
+            <Text style={[s.segText, settings.gender === "male" && s.segTextActive]}>
+              Эрэгтэй
+            </Text>
+          </TouchableOpacity>
+        </AccessibleElement>
+        <AccessibleElement
+          id="settings-gender-female"
+          label="Эмэгтэй хоолой"
+          onActivate={() => settings.gender !== "female" && toggleGender()}
+          style={{ flex: 1 }}
         >
-          <Text
-            style={[s.segText, settings.gender === "female" && s.segTextActive]}
+          <TouchableOpacity
+            style={[s.seg, settings.gender === "female" && s.segActive]}
+            onPress={() => settings.gender !== "female" && toggleGender()}
           >
-            Эмэгтэй
-          </Text>
-        </TouchableOpacity>
+            <Text style={[s.segText, settings.gender === "female" && s.segTextActive]}>
+              Эмэгтэй
+            </Text>
+          </TouchableOpacity>
+        </AccessibleElement>
       </View>
 
       <View style={s.divider} />
@@ -98,26 +104,30 @@ export default function SettingsScreen() {
       {/* Rate */}
       <Text style={s.section}>ЯРИХ ХУРД</Text>
       <View style={s.rateRow}>
-        <TouchableOpacity
-          style={s.rateBtn}
-          onPress={() => changeRate(-0.1)}
-          accessibilityLabel="Хурдыг бага болгох"
+        <AccessibleElement
+          id="settings-rate-down"
+          label="Хурдыг бага болгох"
+          onActivate={() => changeRate(-0.1)}
         >
-          <Text style={s.rateBtnText}>−</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={s.rateBtn} onPress={() => changeRate(-0.1)}>
+            <Text style={s.rateBtnText}>−</Text>
+          </TouchableOpacity>
+        </AccessibleElement>
 
         <View style={s.rateCenter}>
           <Text style={s.rateVal}>{settings.rate.toFixed(1)}</Text>
           <Text style={s.rateUnit}>x</Text>
         </View>
 
-        <TouchableOpacity
-          style={s.rateBtn}
-          onPress={() => changeRate(0.1)}
-          accessibilityLabel="Хурдыг ихэсгэх"
+        <AccessibleElement
+          id="settings-rate-up"
+          label="Хурдыг ихэсгэх"
+          onActivate={() => changeRate(0.1)}
         >
-          <Text style={s.rateBtnText}>+</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={s.rateBtn} onPress={() => changeRate(0.1)}>
+            <Text style={s.rateBtnText}>+</Text>
+          </TouchableOpacity>
+        </AccessibleElement>
       </View>
       <View style={s.rangeLabelRow}>
         <Text style={s.rangeLabel}>0.5x (удаан)</Text>
