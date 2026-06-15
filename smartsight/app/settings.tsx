@@ -36,7 +36,11 @@ export default function SettingsScreen() {
     speech.configure(newSettings);
     setSettings({ rate: next });
     vibrate.tap();
-    speak(Strings.settings.rateChanged(next), "urgent");
+    const msg =
+      next >= 2.0 ? Strings.settings.rateMax :
+      next <= 0.5 ? Strings.settings.rateMin :
+      delta > 0 ? Strings.settings.rateUp : Strings.settings.rateDown;
+    speak(msg, "urgent");
   };
 
   const toggleEnabled = () => {

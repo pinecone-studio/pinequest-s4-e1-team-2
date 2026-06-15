@@ -60,6 +60,10 @@ export const settings = {
   genderMale: 'Эрэгтэй хоолой.',
   genderFemale: 'Эмэгтэй хоолой.',
   rateChanged: (r: number) => `Хурд ${r.toFixed(1)}.`,
+  rateUp: 'Хурд нэмэгдлэлгэж.',
+  rateDown: 'Хурд буурлаа.',
+  rateMax: 'Дээд хурд.',
+  rateMin: 'Доод хурд.',
   voiceOn: 'Дуу асаалаа.',
   voiceOff: 'Дуу унтраалаа.',
 };
