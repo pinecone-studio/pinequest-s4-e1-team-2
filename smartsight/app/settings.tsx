@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import { useVoice, Strings } from "@/src/voice";
+import { useVoice, Strings, speech } from "@/src/voice";
 import { Button } from "@/components/ui-generated/_comps";
 import { AccessibleElement } from "@/components/AccessibleElement";
 
@@ -15,7 +15,9 @@ export default function SettingsScreen() {
   }, [speak]);
 
   const toggleGender = () => {
-    const next = settings.gender === "male" ? "female" : "male";
+    const next: import("@/src/voice").VoiceGender = settings.gender === "male" ? "female" : "male";
+    const newSettings = { ...settings, gender: next };
+    speech.configure(newSettings);
     setSettings({ gender: next });
     vibrate.tap();
     speak(
@@ -30,6 +32,8 @@ export default function SettingsScreen() {
     const next =
       Math.round(Math.min(2.0, Math.max(0.5, settings.rate + delta)) * 10) / 10;
     if (next === settings.rate) return;
+    const newSettings = { ...settings, rate: next };
+    speech.configure(newSettings);
     setSettings({ rate: next });
     vibrate.tap();
     speak(Strings.settings.rateChanged(next), "urgent");
@@ -37,6 +41,8 @@ export default function SettingsScreen() {
 
   const toggleEnabled = () => {
     const next = !settings.enabled;
+    const newSettings = { ...settings, enabled: next };
+    speech.configure(newSettings);
     setSettings({ enabled: next });
     vibrate.tap();
     if (next) setTimeout(() => speak(Strings.settings.voiceOn, "urgent"), 80);
