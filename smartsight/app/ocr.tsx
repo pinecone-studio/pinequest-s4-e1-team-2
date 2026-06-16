@@ -5,15 +5,15 @@ import { TopBar, ss, BackButton } from "@/components/ui-generated/_comps";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button } from "@/components/ui-generated/_comps";
 import { BalancerProvider } from "@/providers/useBalancer";
-import { useBolorSpellCheck } from "@/components/useBolorSpellCheck";
 import { speech, useVoice } from "@/src/voice";
 import { Audio } from "expo-av";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import type { CameraType } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
 import { playSoundFile, stopAllAudio } from "@/services/audio";
-import { detectTextViaOpenAI } from "@/components/Recognition/detectTextViaOpenAI";
 import { useAccessibility } from "@/providers/AccesibilityProvider";
+
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 const PRELOADED_AUDIO = {
   instruction: require("@/assets/haptics/tilt-device-instruction.mp3"),
@@ -25,67 +25,81 @@ export default function OcrPage() {
   return <OcrScreen onBack={() => router.replace("/home")} />;
 }
 
-async function runOcr(base64: string): Promise<string> {
-  const apiKey = process.env.EXPO_PUBLIC_OCR_KEY;
+async function readTextFromPhoto(uri: string): Promise<string | null> {
+  const key = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  console.log("[OCR] API key байна уу:", key ? "тийм" : "ҮГҮЙ");
+  if (!key) return null;
 
-  if (!apiKey) {
-    throw new Error("Missing EXPO_PUBLIC_OCR_KEY in your .env file");
+  try {
+    const img = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: 1024 } }],
+      { base64: true, compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
+    );
+    if (!img.base64) {
+      console.warn("[OCR] base64 хоосон");
+      return null;
+    }
+    console.log("[OCR] Зураг бэлэн, OpenAI руу илгээж байна...");
+
+    const res = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        max_tokens: 700,
+        temperature: 0,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text:
+                  "You are helping a blind person understand the text in a photo. " +
+                  "Read the meaningful text and convey it clearly. " +
+                  "Preserve exact wording for names, numbers, prices. " +
+                  "Reply in Mongolian Cyrillic. If no readable text, reply: none",
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/jpeg;base64,${img.base64}`,
+                  detail: "high",
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    console.log("[OCR] OpenAI хариу статус:", res.status);
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      console.warn("[OCR] OpenAI алдаа:", res.status, errBody.slice(0, 300));
+      return null;
+    }
+
+    const json = await res.json();
+    const text: string = (json.choices?.[0]?.message?.content ?? "").trim();
+    console.log("[OCR] OpenAI текст:", text.slice(0, 150));
+
+    if (!text || /^none\.?$/i.test(text)) return null;
+    return text;
+  } catch (err) {
+    console.warn("[OCR] OpenAI алдаа:", err);
+    return null;
   }
-
-  const formData = new FormData();
-  formData.append("base64Image", `data:image/jpeg;base64,${base64}`);
-  formData.append("language", "eng");
-  formData.append("isOverlayRequired", "false");
-  formData.append("filetype", "JPG");
-  formData.append("detectOrientation", "true");
-  formData.append("scale", "true");
-  formData.append("OCREngine", "2");
-
-  const response = await fetch("https://api.ocr.space/parse/image", {
-    method: "POST",
-    headers: { apikey: apiKey },
-    body: formData,
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(`OCR request failed: HTTP ${response.status}`);
-  }
-
-  if (data?.IsErroredOnProcessing) {
-    const message = Array.isArray(data?.ErrorMessage)
-      ? data.ErrorMessage.join(" ")
-      : data?.ErrorMessage || data?.ErrorDetails || "OCR processing failed";
-    throw new Error(message);
-  }
-
-  return String(data?.ParsedResults?.[0]?.ParsedText ?? "").trim();
-}
-
-async function preparePhotoForOcr(uri: string): Promise<string> {
-  const resized = await ImageManipulator.manipulateAsync(
-    uri,
-    [{ resize: { width: 1400 } }],
-    {
-      base64: true,
-      compress: 0.72,
-      format: ImageManipulator.SaveFormat.JPEG,
-    },
-  );
-
-  if (!resized.base64) {
-    throw new Error("Could not convert captured photo to base64");
-  }
-
-  return resized.base64;
 }
 
 function OcrScreen({ onBack }: { onBack: () => void }) {
   const [permission, requestPermission] = useCameraPermissions();
-  const [st, setSt] = useState<"idle" | "reading" | "correcting" | "done">(
-    "idle",
-  );
+  const [st, setSt] = useState<"idle" | "reading" | "done">("idle");
   const [ocrText, setOcrText] = useState<string>("");
   const [cameraReady, setCameraReady] = useState(false);
   const [scanVersion, setScanVersion] = useState(0);
@@ -93,8 +107,7 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
   const cameraRef = useRef<CameraView | null>(null);
   const busyRef = useRef(false);
   const foundTextRef = useRef(false);
-  const { checkSpelling, reset: resetSpellCheck } = useBolorSpellCheck();
-  const { stop, speak } = useVoice();
+  const { stop } = useVoice();
   const { setScroller } = useAccessibility();
   const textScrollRef = useRef<ScrollView | null>(null);
   const textOffsetRef = useRef(0);
@@ -109,7 +122,6 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
     };
   }, [stop]);
 
-  // Текст гарсан үед 2 хурууны scroll-ийг текст панель руу холбоно
   useEffect(() => {
     if (!ocrText) return;
     textOffsetRef.current = 0;
@@ -132,69 +144,53 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
       busyRef.current ||
       foundTextRef.current
     ) {
+      console.log("[OCR] skip:", { cameraReady, busy: busyRef.current, found: foundTextRef.current });
       return;
     }
     busyRef.current = true;
     setSt("reading");
-    resetSpellCheck();
     stop();
     await stopAllAudio();
     await playSoundFile(PRELOADED_AUDIO.pleaseWait);
 
     try {
+      console.log("[OCR] Зураг авч байна...");
       const photo = await cameraRef.current.takePictureAsync({
         quality: 1,
         shutterSound: false,
       });
 
       if (!photo?.uri) {
+        console.warn("[OCR] Зураг авч чадсангүй");
+        setSt("idle");
         return;
       }
+      console.log("[OCR] Зураг авлаа:", photo.uri.slice(-30));
 
-      // OpenAI vision-оор гол текстийг уншина (хуучин OCR.space + Bolor-ийг орлоно)
-      setSt("reading");
-      const text = await detectTextViaOpenAI(photo.uri);
-      console.log("[OCR] AI text:", text);
+      const text = await readTextFromPhoto(photo.uri);
 
       if (!text) {
+        console.log("[OCR] Текст олдсонгүй");
+        speech.speak("Текст олдсонгүй. Дахин оролдоно уу");
         setSt("idle");
+        busyRef.current = false;
         return;
       }
 
-      const nextText = prepareTextForSpeech(text);
-
-      if (!nextText) {
-        setSt("idle");
-        return;
-      }
-
+      const cleaned = text.replace(/\s+/g, " ").trim();
       foundTextRef.current = true;
-      setOcrText(nextText);
-      speech.speak(nextText);
-      await stopAllAudio();
+      setOcrText(cleaned);
+      console.log("[OCR] Chimege уншиж байна...");
+      speech.speak(cleaned);
       setSt("done");
     } catch (error) {
-      console.warn("[OCR] Capture or recognition failed:", error);
-      await stopAllAudio();
+      console.warn("[OCR] Алдаа:", error);
+      speech.speak("Алдаа гарлаа");
       setSt("idle");
     } finally {
       busyRef.current = false;
     }
-  }, [cameraReady, resetSpellCheck, stop]);
-
-  async function correctOcrText(text: string): Promise<string> {
-    if (!text.trim()) return text;
-
-    const spellCheckResult = await checkSpelling(text);
-    return spellCheckResult?.correctedText ?? text;
-  }
-
-  function prepareTextForSpeech(text: string): string {
-    return text
-      .replace(/\[\[([^\]]+)\]\]/g, "$1")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
+  }, [cameraReady, stop]);
 
   useEffect(() => {
     async function startupAudio() {
@@ -207,16 +203,8 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     if (!permission?.granted || !cameraReady || foundTextRef.current) return;
-
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
     void captureAndOcr();
-
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
+    return () => {};
   }, [cameraReady, captureAndOcr, permission?.granted, scanVersion]);
 
   if (!permission) {
@@ -224,9 +212,7 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
       <BalancerProvider disabled>
         <Screen>
           <TopBar title="Текст унших" onBack={onBack} />
-          <View
-            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-          >
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
             <Text>Requesting camera permission...</Text>
           </View>
         </Screen>
@@ -239,23 +225,15 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
       <BalancerProvider disabled>
         <Screen>
           <TopBar title="Текст унших" onBack={onBack} />
-          <View
-            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-          >
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
             <Text>No access to camera</Text>
-            <Button
-              label="Камер зөвшөөрөх"
-              height={92}
-              onPress={requestPermission}
-            />
+            <Button label="Камер зөвшөөрөх" height={92} onPress={requestPermission} />
           </View>
         </Screen>
       </BalancerProvider>
     );
   }
-  async function ReadAloud() {
-    speech.speak(ocrText);
-  }
+
   return (
     <BalancerProvider disabled={balanceDisabled}>
       <Screen style={{ gap: 5 }}>
@@ -270,7 +248,6 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
         />
         <View style={styles.cameraWrap}>
           {ocrText ? (
-            // Текст гарсан үед камерыг далдалж цэвэр scroll панель харуулна
             <ScrollView
               ref={textScrollRef}
               style={styles.textPanel}
@@ -300,7 +277,6 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
             />
           )}
         </View>
-        {/* Товчнуудыг доош түлхэж, дээрх дуут командын товчтой давхцахаас сэргийлнэ */}
         <View style={{ flex: 1 }} />
         <View style={ss.featureRow}>
           <View style={{ flex: 1 }}>
@@ -308,6 +284,7 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
               label={st === "done" ? "Дахин хайх" : "Одоо хайх"}
               height={80}
               onPress={() => {
+                stop();
                 foundTextRef.current = false;
                 setOcrText("");
                 setSt("idle");
@@ -317,7 +294,13 @@ function OcrScreen({ onBack }: { onBack: () => void }) {
             />
           </View>
           <View style={{ flex: 1 }}>
-            <Button label={"Унших"} height={80} onPress={ReadAloud} />
+            <Button
+              label="Унших"
+              height={80}
+              onPress={() => {
+                if (ocrText) speech.speak(ocrText);
+              }}
+            />
           </View>
         </View>
       </Screen>
@@ -333,13 +316,8 @@ const styles = StyleSheet.create({
     position: "relative",
     backgroundColor: "#000",
   },
-  camera: {
-    flex: 1,
-  },
-  textPanel: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
+  camera: { flex: 1 },
+  textPanel: { flex: 1, backgroundColor: "#000" },
   backBtn: {
     alignSelf: "flex-start",
     backgroundColor: "#fff",
@@ -349,10 +327,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   backBtnLabel: { color: "#000" },
-  detectedTextContent: {
-    padding: 18,
-    paddingBottom: 36,
-  },
+  detectedTextContent: { padding: 18, paddingBottom: 36 },
   detectedText: {
     color: "#fff",
     fontSize: 30,
