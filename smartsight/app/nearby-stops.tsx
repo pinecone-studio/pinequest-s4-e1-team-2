@@ -15,7 +15,7 @@ import { AccessibleElement } from "@/components/AccessibleElement";
 import { useAccessibility } from "@/providers/AccesibilityProvider";
 import * as Location from "expo-location";
 import { speech } from "@/src/voice";
-import { getAllStopsWithRoutes, type BusStopGroup } from "@/services/busApi";
+import { getAllStopsWithRoutes, getAllStations, type BusStopGroup } from "@/services/busApi";
 
 function haversineM(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371000;
@@ -77,40 +77,32 @@ export default function NearbyStopsScreen() {
       });
       const { latitude, longitude } = loc.coords;
 
-      const allStops = await getAllStopsWithRoutes();
+      // Бүх буудал (координаттай) + бүлгийн чиглэлийн мэдээллийг зэрэг татна
+      const [allStations, allGroups] = await Promise.all([
+        getAllStations(),
+        getAllStopsWithRoutes(),
+      ]);
 
-      // Filter stops that have coordinates (busStopId contains lat/lon info from group endpoint)
-      // The group endpoint doesn't have gpxX/gpxY, so we need to use searchStations
-      // Actually, we'll compute distance for all and sort
-      // BusStopGroup doesn't have coords directly, but we can get them from the API
-      // For now, let's use the bus_station_list with empty keyword to get all stops with coords
+      // Чиглэлийн жагсаалтыг хурдан хайхад Map (busStopId → routeList)
+      const routeMap = new Map(allGroups.map((g) => [g.busStopId, g.routeList]));
 
-      // getAllStopsWithRoutes returns BusStopGroup[] without coords
-      // We need a different approach - search nearby using the station list
-      const { searchStations } = await import("@/services/busApi");
-
-      // Search with common Mongolian stop name prefixes to get stops with coordinates
-      const results = await searchStations("");
-
-      const nearby: NearbyStop[] = results
-        .filter((s) => s.gpxX && s.gpxY)
+      // Бүх буудал хүртэлх зайг бодож, хамгийн ойр 10-г сонгоно
+      const nearby: NearbyStop[] = allStations
         .map((s) => {
           const lat = parseFloat(s.gpxY);
           const lon = parseFloat(s.gpxX);
-          const distance = haversineM(latitude, longitude, lat, lon);
-          // Find matching group info for route list
-          const group = allStops.find((g) => g.busStopId === s.busStopId);
           return {
             busStopId: s.busStopId,
             busStopName: s.busStopName,
-            routeList: group?.routeList ?? null,
-            distance,
+            routeList: routeMap.get(s.busStopId) ?? null,
+            distance: haversineM(latitude, longitude, lat, lon),
             lat,
             lon,
           };
         })
+        .filter((s) => !Number.isNaN(s.lat) && !Number.isNaN(s.lon))
         .sort((a, b) => a.distance - b.distance)
-        .slice(0, 5);
+        .slice(0, 10);
 
       setStops(nearby);
 

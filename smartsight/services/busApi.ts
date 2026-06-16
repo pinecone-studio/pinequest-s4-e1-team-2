@@ -61,6 +61,11 @@ export async function searchStations(keyword: string): Promise<BusStop[]> {
   return get('/api/bus/v1/bus_station_list', { keyword, page: '1', perPage: '50' });
 }
 
+/** Бүх буудал координаттайгаар (ойролцоох буудал тооцоход — нийт ~1451) */
+export async function getAllStations(): Promise<BusStop[]> {
+  return get('/api/bus/v1/bus_station_list', { keyword: '', page: '1', perPage: '5000' });
+}
+
 // ── Чиглэл хайх логик ───────────────────────────────────────────────────────
 
 export interface RouteResult {
