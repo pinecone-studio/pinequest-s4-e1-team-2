@@ -57,12 +57,18 @@ export async function detectTextViaOpenAI(uri: string): Promise<string | null> {
       }),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      console.warn(`[OCR] OpenAI API алдаа: ${res.status} ${errBody.slice(0, 200)}`);
+      return null;
+    }
     const json = await res.json();
     const text: string = (json.choices?.[0]?.message?.content ?? "").trim();
+    console.log(`[OCR] OpenAI хариу: "${text.slice(0, 100)}"`);
     if (!text || /^none\.?$/i.test(text)) return null;
     return text;
-  } catch {
+  } catch (err) {
+    console.warn("[OCR] OpenAI detect алдаа:", err);
     return null;
   }
 }
