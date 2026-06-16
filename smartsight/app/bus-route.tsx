@@ -12,11 +12,11 @@ import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { speech } from '@/src/voice';
 import {
-  searchStations, planRoute, planRouteBetweenStops,
-  type BusStop, type Itinerary,
+  searchStations, findDirectRoutesToDestination,
+  type BusStop, type NearbyDirectRoute,
 } from '@/services/busApi';
 import {
-  getSavedRoutes, saveRoute, deleteSavedRoute,
+  getSavedRoutes, saveRoute,
   type SavedRoute,
 } from '@/services/busStorage';
 
@@ -35,18 +35,13 @@ const POPULAR_STOPS: BusStop[] = [
 type Field = 'from' | 'to';
 const DOUBLE_TAP_MS = 400;
 
-function formatDuration(secs: number) {
-  const m = Math.round(secs / 60);
-  return m < 60 ? `${m} мин` : `${Math.floor(m / 60)} цаг ${m % 60} мин`;
-}
-
 function formatDistance(meters: number) {
   return meters >= 1000 ? `${(meters / 1000).toFixed(1)} км` : `${Math.round(meters)} м`;
 }
 
 export default function BusRouteScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ prefillTo?: string }>();
+  const params = useLocalSearchParams<{ prefillTo?: string; voiceTo?: string; voiceAt?: string }>();
 
   // GPS location
   const [myLat, setMyLat] = useState<number | null>(null);
@@ -62,8 +57,8 @@ export default function BusRouteScreen() {
   const [fromStop, setFromStop] = useState<BusStop | null>(null);
   const [toStop, setToStop] = useState<BusStop | null>(null);
 
-  // Results
-  const [itineraries, setItineraries] = useState<Itinerary[]>([]);
+  // Results — надтай ойр буудлуудаас очих газар руу ШУУД явах автобусууд
+  const [directOptions, setDirectOptions] = useState<NearbyDirectRoute[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
@@ -81,6 +76,7 @@ export default function BusRouteScreen() {
   const uid = React.useId().replace(/:/g, '-');
   const fromInputRef = useRef<TextInput>(null);
   const toInputRef = useRef<TextInput>(null);
+  const lastVoiceToRef = useRef<string | null>(null);
 
   useEffect(() => {
     setScroller((dy) => {
@@ -124,13 +120,6 @@ export default function BusRouteScreen() {
     getSavedRoutes().then(setSavedRoutes);
   }, []);
 
-  useEffect(() => {
-    if (params.prefillTo) {
-      setToText(params.prefillTo);
-      handleSearch(params.prefillTo, 'to');
-    }
-  }, [params.prefillTo]);
-
   const handleSearch = useCallback(async (text: string, field: Field) => {
     if (field === 'from') setFromText(text);
     else setToText(text);
@@ -163,10 +152,60 @@ export default function BusRouteScreen() {
     Keyboard.dismiss();
   }, []);
 
-  // Маршрут хайх
+  const applyDestinationText = useCallback(async (rawText: string, source: 'prefill' | 'voice') => {
+    const text = rawText.trim();
+    if (text.length < 2) return;
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setSearched(false);
+    setToStop(null);
+    setToText(text);
+    setActiveField('to');
+
+    try {
+      const stops = await searchStations(text);
+      const matches = stops ?? [];
+      setSuggestions(matches);
+
+      if (matches.length > 0) {
+        const best = matches[0];
+        selectStop(best, 'to');
+        if (source === 'voice') {
+          speech.speak(`${best.busStopName} сонгогдлоо. Чиглэл хайх товчийг дарна уу`);
+        }
+      } else if (source === 'voice') {
+        speech.speak(`${text} гэсэн буудал олдсонгүй. Дахин тод хэлнэ үү`);
+      }
+    } catch {
+      setSuggestions([]);
+      if (source === 'voice') speech.speak('Буудал хайхад алдаа гарлаа');
+    }
+  }, [selectStop]);
+
+  useEffect(() => {
+    if (params.prefillTo) {
+      void applyDestinationText(params.prefillTo, 'prefill');
+    }
+  }, [params.prefillTo, applyDestinationText]);
+
+  useEffect(() => {
+    const voiceTo = params.voiceTo?.trim();
+    const voiceKey = `${voiceTo ?? ''}:${params.voiceAt ?? ''}`;
+    if (!voiceTo || voiceKey === lastVoiceToRef.current) return;
+    lastVoiceToRef.current = voiceKey;
+    void applyDestinationText(voiceTo, 'voice');
+  }, [params.voiceTo, params.voiceAt, applyDestinationText]);
+
+  // Чиглэл хайх — надтай ойр буудлуудаас очих газар руу ШУУД явах автобусыг олно
   const doSearch = useCallback(async () => {
-    const hasFrom = useGps ? (myLat != null && myLon != null) : fromStop != null;
-    if (!hasFrom || !toStop) {
+    // Эхлэх цэгийн координат (GPS эсвэл гараар сонгосон буудал)
+    const fromCoords =
+      useGps && myLat != null && myLon != null
+        ? { lat: myLat, lon: myLon }
+        : fromStop
+          ? { lat: parseFloat(fromStop.gpxY), lon: parseFloat(fromStop.gpxX) }
+          : null;
+    if (!fromCoords || !toStop) {
       speech.speak('Очих буудлаа сонгоно уу');
       return;
     }
@@ -174,28 +213,30 @@ export default function BusRouteScreen() {
     setLoading(true);
     setSearched(true);
     try {
-      let results: Itinerary[];
-      if (useGps && myLat != null && myLon != null) {
-        results = await planRoute(myLat, myLon, parseFloat(toStop.gpxY), parseFloat(toStop.gpxX));
-      } else {
-        results = await planRouteBetweenStops(fromStop!, toStop);
-      }
-      const busResults = results.filter(it => it.legs.some((l: any) => l.mode === 'BUS'));
-      const walkOnly = results.filter(it => !it.legs.some((l: any) => l.mode === 'BUS'));
-      const sorted = [...busResults, ...walkOnly];
-      setItineraries(sorted);
+      // GPS бол ойр 3 буудал, гараар бол тэр буудлаас (1)
+      // Надтай хамгийн ойр 5 буудлаас очих газар руу шууд явдгийг харуулна
+      const opts = await findDirectRoutesToDestination(
+        fromCoords.lat, fromCoords.lon, toStop, 5,
+      );
+      setDirectOptions(opts);
 
-      if (busResults.length > 0) {
-        const firstBus = busResults[0].legs.find((l: any) => l.mode === 'BUS');
-        const name = firstBus?.routeShortName ?? 'автобус';
-        speech.speak(`${busResults.length} маршрут олдлоо. ${name} автобусанд суугаарай`);
-      } else if (walkOnly.length > 0) {
-        speech.speak('Автобусгүй, явганаар хүрнэ');
+      if (opts.length > 0) {
+        const first = opts[0];
+        const routeNo = first.routes[0].busRouteNo;
+        speech.speak(
+          `Ойр буудал ${first.boardStop.busStopName}, ${Math.round(first.walkMeters)} метр. ` +
+          `${routeNo} автобусаар ${toStop.busStopName} хүрнэ`,
+        );
       } else {
-        speech.speak('Маршрут олдсонгүй');
+        speech.speak('Шууд явах автобус олдсонгүй. Дамжих шаардлагатай байж магадгүй');
       }
-    } catch {
-      speech.speak('Алдаа гарлаа');
+    } catch (e) {
+      if (e instanceof Error && e.message === 'RATE_LIMIT') {
+        setSearched(false);
+        speech.speak('Сүлжээ ачаалалтай байна. Хэсэг хүлээгээд дахин оролдоно уу');
+      } else {
+        speech.speak('Алдаа гарлаа');
+      }
     } finally {
       setLoading(false);
     }
@@ -247,7 +288,7 @@ export default function BusRouteScreen() {
     offsetRef.current = 0;
     const timers = [setTimeout(remeasureAll, 250), setTimeout(remeasureAll, 600)];
     return () => timers.forEach(clearTimeout);
-  }, [searched, toStop, useGps, savedRoutes, itineraries, suggestions, remeasureAll]);
+  }, [searched, toStop, useGps, savedRoutes, directOptions, suggestions, remeasureAll]);
 
   return (
     <View style={s.root}>
@@ -461,88 +502,76 @@ export default function BusRouteScreen() {
               <Text style={s.backToSearchText}>Дахин хайх</Text>
             </TouchableOpacity>
           </AccessibleElement>
-          {itineraries.length === 0 ? (
+          {directOptions.length === 0 ? (
             <View style={s.emptyBox}>
-              <Text style={s.emptyText}>Маршрут олдсонгүй</Text>
-              <Text style={s.emptyHint}>Өөр буудал сонгож үзнэ үү</Text>
+              <Text style={s.emptyText}>Шууд явах автобус олдсонгүй</Text>
+              <Text style={s.emptyHint}>Очих буудлыг ойрхон сонгож үзнэ үү</Text>
             </View>
           ) : (
-            itineraries.map((it, idx) => {
-              const busLegs = it.legs.filter((l: any) => l.mode === 'BUS');
-              const hasBus = busLegs.length > 0;
-              const firstBus = busLegs[0];
-              const busNames = busLegs.map((l: any) => l.routeShortName).join(', ');
-              const summary = `${formatDuration(it.duration)}${it.transfers > 0 ? `, ${it.transfers} дамжлага` : ''}${hasBus ? `, автобус ${busNames}` : ', явганаар'}`;
+            directOptions.map((opt, idx) => {
+              const primary = opt.routes[0];
+              const altNos = opt.routes.slice(1).map((r) => r.busRouteNo);
+              const routeNos = opt.routes.map((r) => r.busRouteNo).join(', ');
+              const walk = formatDistance(opt.walkMeters);
+              const summary =
+                `Ойр буудал ${opt.boardStop.busStopName}, ${walk} алхана. ` +
+                `${routeNos} автобусаар ${toStop?.busStopName ?? ''} хүрнэ`;
+              const startJourney = () => {
+                router.push({
+                  pathname: '/bus-journey',
+                  params: {
+                    routeId: primary.busRouteId,
+                    routeName: primary.busRouteNo,
+                    destStopId: toStop?.busStopId ?? '',
+                  },
+                } as any);
+              };
               return (
-                <View key={idx} style={[s.resultCard, hasBus ? s.busCard : s.walkCard]}>
-                  {/* Маршрутын мэдээлэл — хуруу хүрэхэд тоймыг уншина */}
-                  <AccessibleElement id={`bus-${uid}-it-${idx}`} label={summary}>
-                    <View>
-                      <View style={s.cardHeader}>
-                        <Text style={s.cardDuration}>{formatDuration(it.duration)}</Text>
-                        {it.transfers > 0 && (
-                          <Text style={s.transferBadge}>{it.transfers} дамжлага</Text>
-                        )}
-                      </View>
-                      {it.legs.map((leg: any, li: number) => (
-                        <View key={li} style={s.legRow}>
-                          <View style={[s.legDot, leg.mode === 'BUS' ? s.busDot : s.walkDot]} />
-                          <View style={s.legInfo}>
-                            {leg.mode === 'BUS' ? (
-                              <>
-                                <Text style={s.busName}>{leg.routeShortName}</Text>
-                                <Text style={s.legDetail}>{leg.from.name} → {leg.to.name}</Text>
-                              </>
-                            ) : (
-                              <Text style={s.walkText}>
-                                Явган {formatDistance(leg.distance)} ({formatDuration(leg.duration)})
-                              </Text>
+                <View key={opt.boardStop.busStopId + idx} style={[s.resultCard, s.busCard]}>
+                  <View style={s.resultCardRow}>
+                    <View style={s.routeInfo}>
+                      {/* Хуруу хүрэхэд тоймыг уншина */}
+                      <AccessibleElement id={`bus-${uid}-opt-${idx}`} label={summary}>
+                        <View>
+                          <View style={s.routeHeader}>
+                            <Text style={s.routeTitle} numberOfLines={1}>{primary.busRouteNo}</Text>
+                            <Text style={s.transferBadge} numberOfLines={1}>Шууд</Text>
+                          </View>
+                          <View style={s.factList}>
+                            <View style={s.factRow}>
+                              <Text style={s.factLabel}>Суух</Text>
+                              <Text style={s.factValue} numberOfLines={1}>{opt.boardStop.busStopName}</Text>
+                            </View>
+                            <View style={s.factRow}>
+                              <Text style={s.factLabel}>Алхах</Text>
+                              <Text style={s.factValue} numberOfLines={1}>{walk}</Text>
+                            </View>
+                            <View style={s.factRow}>
+                              <Text style={s.factLabel}>Буух</Text>
+                              <Text style={s.factValue} numberOfLines={1}>{toStop?.busStopName ?? ''}</Text>
+                            </View>
+                            {altNos.length > 0 && (
+                              <View style={s.factRow}>
+                                <Text style={s.factLabel}>Эсвэл</Text>
+                                <Text style={s.factValue} numberOfLines={1}>{altNos.join(', ')}</Text>
+                              </View>
                             )}
                           </View>
                         </View>
-                      ))}
-                    </View>
-                  </AccessibleElement>
-                  {hasBus && (
-                    <View style={s.actionRow}>
-                      <AccessibleElement
-                        id={`bus-${uid}-board-${idx}`}
-                        label={`${firstBus.routeShortName} автобусанд суулаа`}
-                        onActivate={() => {
-                          const routeId = firstBus.routeId?.replace('1:', '') ?? '';
-                          const destStopId = it.legs[it.legs.length - 1].to?.stopId?.replace('1:', '') ?? '';
-                          router.push({ pathname: '/bus-journey', params: { routeId, routeName: firstBus.routeShortName, destStopId } } as any);
-                        }}
-                      >
-                        <TouchableOpacity
-                          style={s.actionBtn}
-                          onPress={() => {
-                            const routeId = firstBus.routeId?.replace('1:', '') ?? '';
-                            const destStopId = it.legs[it.legs.length - 1].to?.stopId?.replace('1:', '') ?? '';
-                            router.push({ pathname: '/bus-journey', params: { routeId, routeName: firstBus.routeShortName, destStopId } } as any);
-                          }}
-                        >
-                          <Text style={s.actionText}>Суулаа</Text>
-                        </TouchableOpacity>
-                      </AccessibleElement>
-                      <AccessibleElement
-                        id={`bus-${uid}-scan-${idx}`}
-                        label="Камераар хайх"
-                        onActivate={() => {
-                          router.push({ pathname: '/bus-scan', params: { targetBus: busLegs[0].routeShortName ?? '' } } as any);
-                        }}
-                      >
-                        <TouchableOpacity
-                          style={[s.actionBtn, s.scanBtn]}
-                          onPress={() => {
-                            router.push({ pathname: '/bus-scan', params: { targetBus: busLegs[0].routeShortName ?? '' } } as any);
-                          }}
-                        >
-                          <Text style={s.actionText}>Камераар хайх</Text>
-                        </TouchableOpacity>
                       </AccessibleElement>
                     </View>
-                  )}
+
+                    <AccessibleElement
+                      id={`bus-${uid}-board-${idx}`}
+                      label={`${primary.busRouteNo} автобусанд суулаа`}
+                      onActivate={startJourney}
+                      style={s.boardAction}
+                    >
+                      <TouchableOpacity style={s.boardBtn} onPress={startJourney}>
+                        <Text style={s.boardBtnText}>Суулаа</Text>
+                      </TouchableOpacity>
+                    </AccessibleElement>
+                  </View>
                 </View>
               );
             })
@@ -643,13 +672,58 @@ const s = StyleSheet.create({
     alignItems: 'center', marginBottom: 12,
   },
   backToSearchText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  resultCard: { borderRadius: 12, padding: 16, marginBottom: 10 },
+  resultCard: { height: 190, borderRadius: 12, padding: 14, marginBottom: 10, overflow: 'hidden' },
+  resultCardExpanded: { height: 330 },
   busCard: { backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
   walkCard: { backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  resultCardRow: { height: 162, flexDirection: 'row', alignItems: 'stretch', gap: 12 },
+  routeInfo: { flex: 1, minWidth: 0 },
+  routeHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 },
+  routeTitle: { color: '#fff', fontSize: 28, fontWeight: 'bold', flex: 1 },
+  transferBadge: { color: '#fff', fontSize: 13, fontWeight: '700', flexShrink: 0, maxWidth: 92, textAlign: 'right' },
+  factList: { gap: 5 },
+  factRow: { minHeight: 22, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  factLabel: { width: 52, color: 'rgba(255,255,255,0.48)', fontSize: 12, fontWeight: '700' },
+  factValue: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '600' },
+  detailsToggle: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  detailsToggleText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  detailsBox: {
+    marginTop: 12,
+    maxHeight: 126,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.14)',
+    paddingTop: 8,
+  },
+  detailStep: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 9 },
+  detailStepNo: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  detailStepBody: { flex: 1, minWidth: 0 },
+  detailBusName: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  detailText: { color: 'rgba(255,255,255,0.68)', fontSize: 13, marginTop: 2 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 },
+  timeBlock: { flex: 1, minWidth: 0 },
   cardDuration: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  transferBadge: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  legRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 8 },
+  timeRange: { color: 'rgba(255,255,255,0.58)', fontSize: 13, marginTop: 2 },
+  legsPreview: { height: 102, overflow: 'hidden' },
+  legRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 7 },
   legDot: { width: 12, height: 12, borderRadius: 6, marginTop: 4, marginRight: 10 },
   busDot: { backgroundColor: '#fff' },
   walkDot: { backgroundColor: '#9E9E9E' },
@@ -657,10 +731,17 @@ const s = StyleSheet.create({
   busName: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   legDetail: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginTop: 2 },
   walkText: { color: 'rgba(255,255,255,0.6)', fontSize: 14 },
-  actionRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  actionBtn: { flex: 1, backgroundColor: '#fff', paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
-  scanBtn: { backgroundColor: '#fff' },
-  actionText: { color: '#000', fontSize: 15, fontWeight: 'bold' },
+  moreLegsText: { color: 'rgba(255,255,255,0.45)', fontSize: 12, marginTop: 6, marginLeft: 22 },
+  boardAction: { width: 112, alignSelf: 'stretch' },
+  boardBtn: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  boardBtnText: { color: '#000', fontSize: 22, fontWeight: 'bold', textAlign: 'center' },
   emptyBox: { alignItems: 'center', paddingVertical: 30 },
   emptyText: { color: '#fff', fontSize: 18, fontWeight: '600' },
   emptyHint: { color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 8 },

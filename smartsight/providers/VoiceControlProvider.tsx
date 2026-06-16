@@ -13,6 +13,7 @@ import { transcribeAudio, CHIMEGE_RECORDING_OPTIONS } from "@/src/voice/sttManag
 const INSTRUCTION_AUDIO = require("@/assets/haptics/Instruction.mp3");
 
 const COMMANDS = [
+  { keywords: ["автобус", "чиглэл", "буудал"], route: "/bus-route" },
   { keywords: ["саад", "мэдрэгч"], route: "/obstacle" },
   { keywords: ["өрөө", "хайх"], route: "/room-search" },
   { keywords: ["зам", "тээвэр"], route: "/transport" },
@@ -51,12 +52,44 @@ const VOICE_TOP_ROUTES: string[] = [];
 // 1 товчны өндрөөр (≈88px) дээш гаргана.
 const VOICE_RAISED_ROUTES = ["/location"];
 
+const BUS_DESTINATION_FILLERS = [
+  "автобус",
+  "автобусаар",
+  "чиглэл",
+  "буудал",
+  "хаашаа",
+  "очих",
+  "очмоор байна",
+  "очмоор",
+  "очих вэ",
+  "явмаар байна",
+  "явмаар",
+  "явна",
+  "явъя",
+  "руу",
+  "рүү",
+];
+
 function matchCommand(text: string): string | null {
   const lower = text.toLowerCase().trim();
   for (const cmd of COMMANDS) {
     if (cmd.keywords.some((k) => lower.includes(k))) return cmd.route;
   }
   return null;
+}
+
+function cleanDestinationText(text: string): string {
+  let cleaned = text
+    .toLowerCase()
+    .replace(/[?.!,;:]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  for (const filler of BUS_DESTINATION_FILLERS) {
+    cleaned = cleaned.replace(new RegExp(`(^|\\s)${filler}(?=\\s|$)`, "g"), " ");
+  }
+
+  return cleaned.replace(/\s+/g, " ").trim();
 }
 
 export function VoiceControlProvider({
@@ -127,9 +160,14 @@ export function VoiceControlProvider({
       setProcessing(false);
 
       const route = matchCommand(text);
+      const destinationText = cleanDestinationText(text);
       busyRef.current = false;
 
       if (!route) {
+        if (pathname === "/bus-route" && destinationText.length >= 2) {
+          router.setParams({ voiceTo: destinationText, voiceAt: String(Date.now()) } as any);
+          return;
+        }
         speech.speak("Ойлгосонгүй. Дахин оролдоно уу.");
         return;
       }
@@ -141,6 +179,15 @@ export function VoiceControlProvider({
       } else if (route === "/home") {
         // Нүүр рүү — стекийг давхар home-оор бүү дүүргэ
         router.replace("/home");
+      } else if (route === "/bus-route") {
+        if (destinationText.length >= 2 && destinationText !== text.toLowerCase().trim()) {
+          router.push({
+            pathname: "/bus-route",
+            params: { voiceTo: destinationText, voiceAt: String(Date.now()) },
+          } as any);
+        } else {
+          router.push("/bus-route" as any);
+        }
       } else {
         // push (replace БИШ) — ингэснээр зорилтот дэлгэцийн "Буцах" товч
         // (router.back) нүүр рүү зөв буцна
@@ -164,7 +211,7 @@ export function VoiceControlProvider({
       busyRef.current = false;
       speech.speak("Алдаа гарлаа. Дахин оролдоно уу.");
     }
-  }, []);
+  }, [pathname]);
 
   // Android: volume товч дарахад voice control идэвхждэг
   useEffect(() => {
